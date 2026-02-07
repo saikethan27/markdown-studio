@@ -1,0 +1,354 @@
+/**
+ * Claude Markdown CSS
+ * Scoped styling for markdown elements with Claude's signature aesthetic
+ * Use with .claude-styled class to avoid conflicts with host site styles
+ */
+
+.claude-styled,
+.claude-ui-styled,
+.claude-styled.claude-ui-styled {
+  font-family: var(--font-sans) !important;
+  color: var(--foreground) !important;
+  line-height: 1.7 !important;
+}
+
+.claude-styled h1,
+.claude-styled h2,
+.claude-styled h3,
+.claude-styled h4,
+.claude-styled h5,
+.claude-styled h6,
+.claude-ui-styled h1,
+.claude-ui-styled h2,
+.claude-ui-styled h3,
+.claude-ui-styled h4,
+.claude-ui-styled h5,
+.claude-ui-styled h6 {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin-top: 1.5rem !important;
+  margin-bottom: 0.75rem !important;
+  text-shadow: 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent) !important;
+}
+
+.claude-styled h1,
+.claude-ui-styled h1 {
+  font-size: 1.875rem !important;
+  font-weight: 700 !important;
+  margin-top: 0 !important;
+  margin-bottom: 1rem !important;
+}
+
+.claude-styled h2,
+.claude-ui-styled h2 {
+  font-size: 1.5rem !important;
+  margin-top: 2rem !important;
+}
+
+.claude-styled h3,
+.claude-ui-styled h3 {
+  font-size: 1.25rem !important;
+}
+
+.claude-styled h4,
+.claude-ui-styled h4 {
+  font-size: 1.125rem !important;
+}
+
+.claude-styled h5,
+.claude-ui-styled h5 {
+  font-size: 1rem !important;
+}
+
+.claude-styled h6,
+.claude-ui-styled h6 {
+  font-size: 0.875rem !important;
+  color: var(--muted-foreground) !important;
+}
+
+.claude-styled p,
+.claude-ui-styled p {
+  margin: 0.75rem 0 !important;
+  line-height: 1.7 !important;
+}
+
+.claude-styled p:first-child,
+.claude-ui-styled p:first-child {
+  margin-top: 0 !important;
+}
+
+.claude-styled p:last-child,
+.claude-ui-styled p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.claude-styled strong,
+.claude-styled b,
+.claude-ui-styled strong,
+.claude-ui-styled b {
+  color: var(--primary) !important;
+  font-weight: 600 !important;
+}
+
+.claude-styled code:not(pre code),
+.claude-ui-styled code:not(pre code) {
+  background: var(--muted) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.875em !important;
+  padding: 0.125rem 0.375rem !important;
+  color: var(--foreground) !important;
+}
+
+.claude-styled pre,
+.claude-ui-styled pre {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  padding: 1rem !important;
+  overflow-x: auto !important;
+  margin: 1rem 0 !important;
+}
+
+.claude-styled pre code,
+.claude-ui-styled pre code {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.875rem !important;
+  line-height: 1.6 !important;
+  padding: 0 !important;
+  color: var(--card-foreground) !important;
+  display: block !important;
+}
+
+.claude-styled ul,
+.claude-styled ol,
+.claude-ui-styled ul,
+.claude-ui-styled ol {
+  padding-left: 1.5rem !important;
+  margin: 0.75rem 0 !important;
+}
+
+.claude-styled ul,
+.claude-ui-styled ul {
+  list-style-type: disc !important;
+}
+
+.claude-styled ol,
+.claude-ui-styled ol {
+  list-style-type: decimal !important;
+}
+
+.claude-styled ul ul,
+.claude-styled ol ol,
+.claude-styled ul ol,
+.claude-styled ol ul,
+.claude-ui-styled ul ul,
+.claude-ui-styled ol ol,
+.claude-ui-styled ul ol,
+.claude-ui-styled ol ul {
+  margin: 0.25rem 0 !important;
+}
+
+.claude-styled li,
+.claude-ui-styled li {
+  margin: 0.375rem 0 !important;
+  line-height: 1.6 !important;
+}
+
+.claude-styled li::marker,
+.claude-ui-styled li::marker {
+  color: var(--primary) !important;
+}
+
+.claude-styled blockquote,
+.claude-ui-styled blockquote {
+  border-left: 3px solid var(--primary) !important;
+  background: var(--muted) !important;
+  padding: 0.75rem 1rem !important;
+  margin: 1rem 0 !important;
+  border-radius: 0 var(--radius) var(--radius) 0 !important;
+}
+
+.claude-styled blockquote p,
+.claude-ui-styled blockquote p {
+  margin: 0 !important;
+  color: var(--muted-foreground) !important;
+}
+
+.claude-styled blockquote p + p,
+.claude-ui-styled blockquote p + p {
+  margin-top: 0.5rem !important;
+}
+
+.claude-styled table,
+.claude-ui-styled table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 1rem 0 !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  overflow: hidden !important;
+}
+
+.claude-styled thead,
+.claude-ui-styled thead {
+  background: var(--muted) !important;
+}
+
+.claude-styled th,
+.claude-ui-styled th {
+  color: var(--foreground) !important;
+  font-weight: 600 !important;
+  text-align: left !important;
+  padding: 0.625rem 0.875rem !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+.claude-styled td,
+.claude-ui-styled td {
+  padding: 0.625rem 0.875rem !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.claude-styled tbody tr:last-child td,
+.claude-ui-styled tbody tr:last-child td {
+  border-bottom: none !important;
+}
+
+.claude-styled tbody tr:nth-child(even),
+.claude-ui-styled tbody tr:nth-child(even) {
+  background: var(--muted) !important;
+}
+
+.claude-styled a,
+.claude-ui-styled a {
+  color: var(--primary) !important;
+  text-decoration: none !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.claude-styled a:hover,
+.claude-ui-styled a:hover {
+  text-decoration: underline !important;
+  opacity: 0.8 !important;
+}
+
+.claude-styled a:focus,
+.claude-ui-styled a:focus {
+  outline: 2px solid var(--ring) !important;
+  outline-offset: 2px !important;
+  border-radius: 2px !important;
+}
+
+.claude-styled hr,
+.claude-ui-styled hr {
+  border: none !important;
+  border-top: 1px solid var(--border) !important;
+  margin: 1.5rem 0 !important;
+}
+
+.claude-styled em,
+.claude-styled i,
+.claude-ui-styled em,
+.claude-ui-styled i {
+  font-style: italic !important;
+  color: var(--foreground) !important;
+}
+
+.claude-styled s,
+.claude-styled del,
+.claude-ui-styled s,
+.claude-ui-styled del {
+  text-decoration: line-through !important;
+  color: var(--muted-foreground) !important;
+}
+
+.claude-styled sub,
+.claude-styled sup,
+.claude-ui-styled sub,
+.claude-ui-styled sup {
+  font-size: 0.75em !important;
+  line-height: 0 !important;
+}
+
+.claude-styled sup,
+.claude-ui-styled sup {
+  vertical-align: super !important;
+}
+
+.claude-styled sub,
+.claude-ui-styled sub {
+  vertical-align: sub !important;
+}
+
+.claude-styled kbd,
+.claude-ui-styled kbd {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-bottom-width: 2px !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.875em !important;
+  padding: 0.125rem 0.375rem !important;
+  color: var(--card-foreground) !important;
+}
+
+.claude-styled mark,
+.claude-ui-styled mark {
+  background: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+  padding: 0.125rem 0.25rem !important;
+  border-radius: calc(var(--radius) - 4px) !important;
+}
+
+.claude-styled dl,
+.claude-ui-styled dl {
+  margin: 0.75rem 0 !important;
+}
+
+.claude-styled dt,
+.claude-ui-styled dt {
+  font-weight: 600 !important;
+  color: var(--foreground) !important;
+  margin-top: 0.75rem !important;
+}
+
+.claude-styled dd,
+.claude-ui-styled dd {
+  margin-left: 1.5rem !important;
+  color: var(--muted-foreground) !important;
+}
+
+.claude-styled li > p,
+.claude-ui-styled li > p {
+  margin: 0.25rem 0 !important;
+}
+
+.claude-styled li > ul,
+.claude-styled li > ol,
+.claude-ui-styled li > ul,
+.claude-ui-styled li > ol {
+  margin: 0.25rem 0 !important;
+}
+
+.claude-styled blockquote > *:first-child,
+.claude-ui-styled blockquote > *:first-child {
+  margin-top: 0 !important;
+}
+
+.claude-styled blockquote > *:last-child,
+.claude-ui-styled blockquote > *:last-child {
+  margin-bottom: 0 !important;
+}
+
+.claude-styled .katex-display,
+.claude-ui-styled .katex-display {
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+}

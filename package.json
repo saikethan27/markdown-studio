@@ -1,0 +1,76 @@
+{
+  "name": "claude-ui-md-viewer",
+  "displayName": "Claude UI Markdown Viewer",
+  "description": "Preview Markdown files in a Claude-style UI experience.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onCommand:claudeMarkdownPreview.openPreview",
+    "onLanguage:markdown"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeMarkdownPreview.openPreview",
+        "title": "Claude Markdown: Open Preview"
+      }
+    ],
+    "configuration": {
+      "title": "Claude Markdown Preview",
+      "properties": {
+        "claudeMarkdownPreview.autoUpdateDebounceMs": {
+          "type": "number",
+          "default": 150,
+          "minimum": 0,
+          "description": "Debounce in milliseconds for live preview updates."
+        },
+        "claudeMarkdownPreview.enableMermaid": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Mermaid diagram rendering for fenced code blocks tagged as mermaid."
+        },
+        "claudeMarkdownPreview.enableMath": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable KaTeX rendering for math expressions."
+        },
+        "claudeMarkdownPreview.enableTaskLists": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable GitHub-style task list checkboxes."
+        },
+        "claudeMarkdownPreview.enableFootnotes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable markdown footnote syntax."
+        }
+      }
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.25",
+    "markdown-it": "^14.1.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-katex": "^2.0.3",
+    "markdown-it-task-lists": "^2.1.1",
+    "mermaid": "^11.12.0"
+  }
+}

@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude UI/UX Extension - Test Page</title>
+  <link rel="stylesheet" href="claude_index.css">
+  <link rel="stylesheet" href="content/claude-markdown.css">
+  <style>
+    /* Test page layout styles (not markdown content) */
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-sans);
+      background: var(--background);
+      color: var(--foreground);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    .header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 1.5rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .header-description {
+      margin: 0.25rem 0 0 0;
+      font-size: 0.875rem;
+      color: var(--muted-foreground);
+    }
+
+    .controls {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 0.5rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--muted);
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn.active {
+      box-shadow: 0 0 0 2px var(--ring);
+    }
+
+    .main {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    .columns {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      .columns {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .column {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .column-header {
+      background: var(--muted);
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .column-header h2 {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: calc(var(--radius) - 2px);
+      background: var(--secondary);
+      color: var(--secondary-foreground);
+      font-weight: 500;
+    }
+
+    .badge.styled {
+      background: var(--primary);
+      color: var(--primary-foreground);
+    }
+
+    .column-content {
+      padding: 1.5rem;
+    }
+
+    /* Unstyled section - no .claude-styled wrapper */
+    .unstyled-content {
+      /* Uses browser defaults */
+    }
+
+    /* Styled section - wrapped in .claude-styled */
+    .styled-content {
+      /* Inherits from claude-markdown.css */
+    }
+
+    .section-title {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin: 2rem 0 1rem 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title:first-child {
+      margin-top: 0;
+    }
+
+    /* Debug panel */
+    .debug-panel {
+      position: fixed;
+      bottom: 1rem;
+      right: 1rem;
+      background: var(--popover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      box-shadow: var(--shadow-lg);
+      font-size: 0.75rem;
+      color: var(--popover-foreground);
+      max-width: 300px;
+      z-index: 1000;
+    }
+
+    .debug-panel h3 {
+      margin: 0 0 0.5rem 0;
+      font-size: 0.875rem;
+      font-weight: 600;
+    }
+
+    .debug-info {
+      font-family: var(--font-mono);
+      margin: 0;
+      line-height: 1.5;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div>
+        <h1>Claude UI/UX Extension - Test Page</h1>
+        <p class="header-description">Comprehensive markdown element testing for Claude styling validation</p>
+      </div>
+      <div class="controls">
+        <button id="themeToggle" class="btn btn-primary">
+          <span id="themeIcon">🌙</span> <span id="themeText">Dark Mode</span>
+        </button>
+        <button id="toggleStyled" class="btn">
+          Toggle .claude-styled
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+    <div class="columns">
+      <!-- Unstyled Column -->
+      <div class="column">
+        <div class="column-header">
+          <h2>Unstyled (Browser Default)</h2>
+          <span class="badge">Raw HTML</span>
+        </div>
+        <div class="column-content unstyled-content" id="unstyledContent">
+
+          <p class="section-title">Headings</p>
+          <h1>Heading 1</h1>
+          <h2>Heading 2</h2>
+          <h3>Heading 3</h3>
+          <h4>Heading 4</h4>
+          <h5>Heading 5</h5>
+          <h6>Heading 6</h6>
+
+          <p class="section-title">Paragraphs & Text Formatting</p>
+          <p>This is a regular paragraph with multiple sentences. It demonstrates the default paragraph styling without any special formatting applied.</p>
+          <p>This paragraph contains <strong>bold text</strong> using the strong tag.</p>
+          <p>This paragraph contains <em>italic text</em> using the em tag.</p>
+          <p>This paragraph contains <strong><em>bold and italic</em></strong> text combined.</p>
+          <p>This paragraph contains <code>inline code</code> for demonstrating code snippets within text.</p>
+
+          <p class="section-title">Code Blocks</p>
+          <pre><code>plain code block
+no language specified
+just plain text</code></pre>
+
+          <pre><code class="language-javascript">function hello() {
+  console.log("Hello, world!");
+  return true;
+}</code></pre>
+
+          <pre><code class="language-python">def hello():
+    print("Hello, world!")
+    return True</code></pre>
+
+          <p class="section-title">Lists</p>
+          <p><strong>Unordered List:</strong></p>
+          <ul>
+            <li>First item</li>
+            <li>Second item</li>
+            <li>Third item</li>
+          </ul>
+
+          <p><strong>Nested Unordered List:</strong></p>
+          <ul>
+            <li>Parent item 1
+              <ul>
+                <li>Child item 1.1</li>
+                <li>Child item 1.2</li>
+              </ul>
+            </li>
+            <li>Parent item 2
+              <ul>
+                <li>Child item 2.1</li>
+              </ul>
+            </li>
+          </ul>
+
+          <p><strong>Ordered List:</strong></p>
+          <ol>
+            <li>First step</li>
+            <li>Second step</li>
+            <li>Third step</li>
+          </ol>
+
+          <p><strong>Nested Ordered List:</strong></p>
+          <ol>
+            <li>Phase 1
+              <ol>
+                <li>Step 1.1</li>
+                <li>Step 1.2</li>
+              </ol>
+            </li>
+            <li>Phase 2
+              <ol>
+                <li>Step 2.1</li>
+              </ol>
+            </li>
+          </ol>
+
+          <p><strong>Mixed Nested Lists:</strong></p>
+          <ul>
+            <li>Unordered item
+              <ol>
+                <li>Ordered child 1</li>
+                <li>Ordered child 2</li>
+              </ol>
+            </li>
+            <li>Another unordered item
+              <ul>
+                <li>Unordered nested</li>
+              </ul>
+            </li>
+          </ul>
+
+          <p class="section-title">Blockquotes</p>
+          <blockquote>
+            <p>This is a simple blockquote. It stands out from regular paragraphs.</p>
+          </blockquote>
+
+          <blockquote>
+            <p>This is a blockquote with multiple paragraphs.</p>
+            <p>Second paragraph in the same blockquote.</p>
+          </blockquote>
+
+          <blockquote>
+            <p>This is a nested blockquote example.</p>
+            <blockquote>
+              <p>This is the inner blockquote.</p>
+            </blockquote>
+          </blockquote>
+
+          <blockquote>
+            <p>Blockquote with a list inside:</p>
+            <ul>
+              <li>Item one</li>
+              <li>Item two</li>
+            </ul>
+          </blockquote>
+
+          <p class="section-title">Tables</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>id</td>
+                <td>string</td>
+                <td>Unique identifier</td>
+              </tr>
+              <tr>
+                <td>name</td>
+                <td>string</td>
+                <td>Display name</td>
+              </tr>
+              <tr>
+                <td>active</td>
+                <td>boolean</td>
+                <td>Whether enabled</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p><strong>Table with alignment and formatting:</strong></p>
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left">Left</th>
+                <th style="text-align: center">Center</th>
+                <th style="text-align: right">Right</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: left"><code>code</code></td>
+                <td style="text-align: center"><strong>bold</strong></td>
+                <td style="text-align: right"><em>italic</em></td>
+              </tr>
+              <tr>
+                <td style="text-align: left">text</td>
+                <td style="text-align: center">text</td>
+                <td style="text-align: right">text</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="section-title">Links</p>
+          <p><a href="https://example.com">Inline link</a></p>
+          <p><a href="https://example.com" title="This is the title">Link with title attribute</a></p>
+
+          <p class="section-title">Horizontal Rules</p>
+          <p>Above the rule:</p>
+          <hr>
+          <p>Below the rule:</p>
+
+          <p class="section-title">Complex Combinations</p>
+          <ul>
+            <li>List item with <code>inline code</code> and <strong>bold text</strong></li>
+            <li>List item with <em>italic</em> and a <a href="#">link</a></li>
+          </ul>
+
+          <blockquote>
+            <p>Blockquote containing a code block:</p>
+            <pre><code>const example = "code inside blockquote";</code></pre>
+          </blockquote>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Inline code</td>
+                <td><code>console.log()</code></td>
+              </tr>
+              <tr>
+                <td>Bold text</td>
+                <td><strong>Important</strong></td>
+              </tr>
+              <tr>
+                <td>Link</td>
+                <td><a href="#">Click here</a></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="section-title">Additional Elements</p>
+          <p><strong>Strikethrough:</strong> <s>Deleted text</s> and <del>also deleted</del></p>
+          <p><strong>Keyboard input:</strong> Press <kbd>Ctrl</kbd> + <kbd>C</kbd> to copy</p>
+          <p><strong>Highlight:</strong> <mark>Highlighted text</mark></p>
+          <p><strong>Superscript:</strong> E = mc<sup>2</sup></p>
+          <p><strong>Subscript:</strong> H<sub>2</sub>O</p>
+
+          <p><strong>Definition List:</strong></p>
+          <dl>
+            <dt>Term 1</dt>
+            <dd>Definition for term 1</dd>
+            <dt>Term 2</dt>
+            <dd>Definition for term 2</dd>
+          </dl>
+
+        </div>
+      </div>
+
+      <!-- Styled Column -->
+      <div class="column">
+        <div class="column-header">
+          <h2>Claude Styled</h2>
+          <span class="badge styled">.claude-styled</span>
+        </div>
+        <div class="column-content styled-content claude-styled" id="styledContent">
+
+          <p class="section-title">Headings</p>
+          <h1>Heading 1</h1>
+          <h2>Heading 2</h2>
+          <h3>Heading 3</h3>
+          <h4>Heading 4</h4>
+          <h5>Heading 5</h5>
+          <h6>Heading 6</h6>
+
+          <p class="section-title">Paragraphs & Text Formatting</p>
+          <p>This is a regular paragraph with multiple sentences. It demonstrates the default paragraph styling without any special formatting applied.</p>
+          <p>This paragraph contains <strong>bold text</strong> using the strong tag.</p>
+          <p>This paragraph contains <em>italic text</em> using the em tag.</p>
+          <p>This paragraph contains <strong><em>bold and italic</em></strong> text combined.</p>
+          <p>This paragraph contains <code>inline code</code> for demonstrating code snippets within text.</p>
+
+          <p class="section-title">Code Blocks</p>
+          <pre><code>plain code block
+no language specified
+just plain text</code></pre>
+
+          <pre><code class="language-javascript">function hello() {
+  console.log("Hello, world!");
+  return true;
+}</code></pre>
+
+          <pre><code class="language-python">def hello():
+    print("Hello, world!")
+    return True</code></pre>
+
+          <p class="section-title">Lists</p>
+          <p><strong>Unordered List:</strong></p>
+          <ul>
+            <li>First item</li>
+            <li>Second item</li>
+            <li>Third item</li>
+          </ul>
+
+          <p><strong>Nested Unordered List:</strong></p>
+          <ul>
+            <li>Parent item 1
+              <ul>
+                <li>Child item 1.1</li>
+                <li>Child item 1.2</li>
+              </ul>
+            </li>
+            <li>Parent item 2
+              <ul>
+                <li>Child item 2.1</li>
+              </ul>
+            </li>
+          </ul>
+
+          <p><strong>Ordered List:</strong></p>
+          <ol>
+            <li>First step</li>
+            <li>Second step</li>
+            <li>Third step</li>
+          </ol>
+
+          <p><strong>Nested Ordered List:</strong></p>
+          <ol>
+            <li>Phase 1
+              <ol>
+                <li>Step 1.1</li>
+                <li>Step 1.2</li>
+              </ol>
+            </li>
+            <li>Phase 2
+              <ol>
+                <li>Step 2.1</li>
+              </ol>
+            </li>
+          </ol>
+
+          <p><strong>Mixed Nested Lists:</strong></p>
+          <ul>
+            <li>Unordered item
+              <ol>
+                <li>Ordered child 1</li>
+                <li>Ordered child 2</li>
+              </ol>
+            </li>
+            <li>Another unordered item
+              <ul>
+                <li>Unordered nested</li>
+              </ul>
+            </li>
+          </ul>
+
+          <p class="section-title">Blockquotes</p>
+          <blockquote>
+            <p>This is a simple blockquote. It stands out from regular paragraphs.</p>
+          </blockquote>
+
+          <blockquote>
+            <p>This is a blockquote with multiple paragraphs.</p>
+            <p>Second paragraph in the same blockquote.</p>
+          </blockquote>
+
+          <blockquote>
+            <p>This is a nested blockquote example.</p>
+            <blockquote>
+              <p>This is the inner blockquote.</p>
+            </blockquote>
+          </blockquote>
+
+          <blockquote>
+            <p>Blockquote with a list inside:</p>
+            <ul>
+              <li>Item one</li>
+              <li>Item two</li>
+            </ul>
+          </blockquote>
+
+          <p class="section-title">Tables</p>
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>id</td>
+                <td>string</td>
+                <td>Unique identifier</td>
+              </tr>
+              <tr>
+                <td>name</td>
+                <td>string</td>
+                <td>Display name</td>
+              </tr>
+              <tr>
+                <td>active</td>
+                <td>boolean</td>
+                <td>Whether enabled</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p><strong>Table with alignment and formatting:</strong></p>
+          <table>
+            <thead>
+              <tr>
+                <th style="text-align: left">Left</th>
+                <th style="text-align: center">Center</th>
+                <th style="text-align: right">Right</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="text-align: left"><code>code</code></td>
+                <td style="text-align: center"><strong>bold</strong></td>
+                <td style="text-align: right"><em>italic</em></td>
+              </tr>
+              <tr>
+                <td style="text-align: left">text</td>
+                <td style="text-align: center">text</td>
+                <td style="text-align: right">text</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="section-title">Links</p>
+          <p><a href="https://example.com">Inline link</a></p>
+          <p><a href="https://example.com" title="This is the title">Link with title attribute</a></p>
+
+          <p class="section-title">Horizontal Rules</p>
+          <p>Above the rule:</p>
+          <hr>
+          <p>Below the rule:</p>
+
+          <p class="section-title">Complex Combinations</p>
+          <ul>
+            <li>List item with <code>inline code</code> and <strong>bold text</strong></li>
+            <li>List item with <em>italic</em> and a <a href="#">link</a></li>
+          </ul>
+
+          <blockquote>
+            <p>Blockquote containing a code block:</p>
+            <pre><code>const example = "code inside blockquote";</code></pre>
+          </blockquote>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Example</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Inline code</td>
+                <td><code>console.log()</code></td>
+              </tr>
+              <tr>
+                <td>Bold text</td>
+                <td><strong>Important</strong></td>
+              </tr>
+              <tr>
+                <td>Link</td>
+                <td><a href="#">Click here</a></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p class="section-title">Additional Elements</p>
+          <p><strong>Strikethrough:</strong> <s>Deleted text</s> and <del>also deleted</del></p>
+          <p><strong>Keyboard input:</strong> Press <kbd>Ctrl</kbd> + <kbd>C</kbd> to copy</p>
+          <p><strong>Highlight:</strong> <mark>Highlighted text</mark></p>
+          <p><strong>Superscript:</strong> E = mc<sup>2</sup></p>
+          <p><strong>Subscript:</strong> H<sub>2</sub>O</p>
+
+          <p><strong>Definition List:</strong></p>
+          <dl>
+            <dt>Term 1</dt>
+            <dd>Definition for term 1</dd>
+            <dt>Term 2</dt>
+            <dd>Definition for term 2</dd>
+          </dl>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="debug-panel" id="debugPanel">
+    <h3>Debug Info</h3>
+    <pre class="debug-info" id="debugInfo">Loading...</pre>
+  </div>
+
+  <script>
+    // Debug and state management
+    const state = {
+      darkMode: false,
+      styledEnabled: true
+    };
+
+    // DOM elements
+    const body = document.body;
+    const themeToggle = document.getElementById('themeToggle');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeText = document.getElementById('themeText');
+    const toggleStyled = document.getElementById('toggleStyled');
+    const styledContent = document.getElementById('styledContent');
+    const debugInfo = document.getElementById('debugInfo');
+
+    // Update debug panel
+    function updateDebugInfo() {
+      const info = {
+        darkMode: state.darkMode,
+        styledEnabled: state.styledEnabled,
+        bodyClasses: body.className,
+        styledContentClasses: styledContent.className,
+        timestamp: new Date().toISOString()
+      };
+      debugInfo.textContent = JSON.stringify(info, null, 2);
+      console.log('[Claude Test Page] State updated:', info);
+    }
+
+    // Toggle dark mode
+    function toggleDarkMode() {
+      state.darkMode = !state.darkMode;
+
+      if (state.darkMode) {
+        body.classList.add('dark');
+        themeIcon.textContent = '☀️';
+        themeText.textContent = 'Light Mode';
+      } else {
+        body.classList.remove('dark');
+        themeIcon.textContent = '🌙';
+        themeText.textContent = 'Dark Mode';
+      }
+
+      updateDebugInfo();
+      console.log('[Claude Test Page] Dark mode toggled:', state.darkMode);
+    }
+
+    // Toggle .claude-styled class
+    function toggleStyledClass() {
+      state.styledEnabled = !state.styledEnabled;
+
+      if (state.styledEnabled) {
+        styledContent.classList.add('claude-styled');
+        toggleStyled.classList.add('active');
+      } else {
+        styledContent.classList.remove('claude-styled');
+        toggleStyled.classList.remove('active');
+      }
+
+      updateDebugInfo();
+      console.log('[Claude Test Page] Styled class toggled:', state.styledEnabled);
+    }
+
+    // Event listeners
+    themeToggle.addEventListener('click', toggleDarkMode);
+    toggleStyled.addEventListener('click', toggleStyledClass);
+
+    // Initialize
+    function init() {
+      console.log('[Claude Test Page] Initializing...');
+
+      // Set initial state
+      toggleStyled.classList.add('active');
+
+      // Check system preference for dark mode
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        console.log('[Claude Test Page] System prefers dark mode');
+        toggleDarkMode();
+      }
+
+      updateDebugInfo();
+      console.log('[Claude Test Page] Initialization complete');
+    }
+
+    // Run on DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+
+    // Listen for system theme changes
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+        console.log('[Claude Test Page] System theme changed:', e.matches ? 'dark' : 'light');
+        if (e.matches && !state.darkMode) {
+          toggleDarkMode();
+        } else if (!e.matches && state.darkMode) {
+          toggleDarkMode();
+        }
+      });
+    }
+  </script>
+</body>
+</html>
