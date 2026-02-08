@@ -2,7 +2,7 @@
   "name": "markdown-studio",
   "displayName": "markdown-studio",
   "description": "Preview Markdown files in a Markdown Studio webview experience.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "local",
   "icon": "media/extension-icon.png",
   "engines": {
