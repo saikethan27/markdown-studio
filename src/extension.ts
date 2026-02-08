@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { CustomEditorProvider } from "./preview/CustomEditorProvider";
 import { PreviewPanel } from "./preview/PreviewPanel";
 
 function isMarkdownDocument(document: vscode.TextDocument | undefined): document is vscode.TextDocument {
@@ -6,11 +7,13 @@ function isMarkdownDocument(document: vscode.TextDocument | undefined): document
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  const customEditorProvider = CustomEditorProvider.register(context);
+
   const openPreviewCommand = vscode.commands.registerCommand("claudeMarkdownPreview.openPreview", () => {
     const activeEditor = vscode.window.activeTextEditor;
 
     if (!isMarkdownDocument(activeEditor?.document)) {
-      void vscode.window.showInformationMessage("Claude Markdown Preview: open a Markdown file first.");
+      void vscode.window.showInformationMessage("markdown-studio: open a Markdown file first.");
       return;
     }
 
@@ -30,6 +33,7 @@ export function activate(context: vscode.ExtensionContext): void {
   });
 
   context.subscriptions.push(
+    customEditorProvider,
     openPreviewCommand,
     textDocumentChangeSubscription,
     activeEditorChangeSubscription,

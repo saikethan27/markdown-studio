@@ -35,7 +35,7 @@
 
       await window.mermaid.run({ nodes });
     } catch (error) {
-      console.error("[Claude Markdown Preview] Mermaid rendering failed:", error);
+      console.error("[markdown-studio] Mermaid rendering failed:", error);
     }
   }
 
@@ -72,7 +72,7 @@
       return;
     }
 
-    titleElement.textContent = message.title || "Claude Markdown Preview";
+    titleElement.textContent = message.title || "markdown-studio";
     applyTheme(message.theme);
     contentElement.innerHTML = message.html || "";
 

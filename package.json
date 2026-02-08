@@ -1,9 +1,10 @@
 {
-  "name": "claude-ui-md-viewer",
-  "displayName": "Claude UI Markdown Viewer",
-  "description": "Preview Markdown files in a Claude-style UI experience.",
+  "name": "markdown-studio",
+  "displayName": "markdown-studio",
+  "description": "Preview Markdown files in a Markdown Studio webview experience.",
   "version": "0.0.1",
   "publisher": "local",
+  "icon": "media/extension-icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -12,6 +13,7 @@
     "Visualization"
   ],
   "activationEvents": [
+    "onCustomEditor:claudeMarkdownPreview.customEditor",
     "onCommand:claudeMarkdownPreview.openPreview",
     "onLanguage:markdown"
   ],
@@ -22,14 +24,29 @@
     "test": "npm run compile && node --test test/**/*.test.js"
   },
   "contributes": {
+    "customEditors": [
+      {
+        "viewType": "claudeMarkdownPreview.customEditor",
+        "displayName": "markdown-studio",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
     "commands": [
       {
         "command": "claudeMarkdownPreview.openPreview",
-        "title": "Claude Markdown: Open Preview"
+        "title": "markdown-studio: Open Preview"
       }
     ],
     "configuration": {
-      "title": "Claude Markdown Preview",
+      "title": "markdown-studio",
       "properties": {
         "claudeMarkdownPreview.autoUpdateDebounceMs": {
           "type": "number",

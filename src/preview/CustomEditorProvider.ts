@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { renderMarkdown, type RendererSettings } from "../render/markdownRenderer";
 
-const PANEL_VIEW_TYPE = "claudeMarkdownPreview.preview";
+const CUSTOM_EDITOR_VIEW_TYPE = "claudeMarkdownPreview.customEditor";
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 
 interface RenderPayload {
@@ -31,42 +31,37 @@ interface HrefParts {
   fragment: string;
 }
 
-export class PreviewPanel {
-  private static currentPanelInstance: PreviewPanel | undefined;
+export class CustomEditorProvider implements vscode.CustomTextEditorProvider {
+  public static readonly viewType = CUSTOM_EDITOR_VIEW_TYPE;
 
-  public static get current(): PreviewPanel | undefined {
-    return PreviewPanel.currentPanelInstance;
+  public static register(context: vscode.ExtensionContext): vscode.Disposable {
+    const provider = new CustomEditorProvider(context);
+    return vscode.window.registerCustomEditorProvider(CustomEditorProvider.viewType, provider, {
+      webviewOptions: {
+        retainContextWhenHidden: true
+      },
+      supportsMultipleEditorsPerDocument: true
+    });
   }
 
-  public static createOrShow(context: vscode.ExtensionContext, document: vscode.TextDocument): PreviewPanel {
-    if (PreviewPanel.currentPanelInstance) {
-      PreviewPanel.currentPanelInstance.panel.reveal(vscode.ViewColumn.Beside);
-      PreviewPanel.currentPanelInstance.setDocument(document);
-      return PreviewPanel.currentPanelInstance;
-    }
-
-    const workspaceResourceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
-    const panel = vscode.window.createWebviewPanel(
-      PANEL_VIEW_TYPE,
-      "markdown-studio",
-      vscode.ViewColumn.Beside,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(context.extensionUri, "media"),
-          context.extensionUri,
-          ...workspaceResourceRoots
-        ]
-      }
-    );
-
-    PreviewPanel.currentPanelInstance = new PreviewPanel(panel, context, document);
-    return PreviewPanel.currentPanelInstance;
-  }
-
-  private readonly panel: vscode.WebviewPanel;
   private readonly context: vscode.ExtensionContext;
+
+  private constructor(context: vscode.ExtensionContext) {
+    this.context = context;
+  }
+
+  public resolveCustomTextEditor(
+    document: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel,
+    _token: vscode.CancellationToken
+  ): void {
+    new CustomEditorSession(this.context, document, webviewPanel);
+  }
+}
+
+class CustomEditorSession {
+  private readonly context: vscode.ExtensionContext;
+  private readonly webviewPanel: vscode.WebviewPanel;
   private readonly disposables: vscode.Disposable[] = [];
 
   private currentDocument: vscode.TextDocument;
@@ -74,22 +69,45 @@ export class PreviewPanel {
   private isReady = false;
   private pendingRenderPayload: RenderPayload | undefined;
 
-  private constructor(panel: vscode.WebviewPanel, context: vscode.ExtensionContext, document: vscode.TextDocument) {
-    this.panel = panel;
+  public constructor(
+    context: vscode.ExtensionContext,
+    document: vscode.TextDocument,
+    webviewPanel: vscode.WebviewPanel
+  ) {
     this.context = context;
     this.currentDocument = document;
+    this.webviewPanel = webviewPanel;
 
-    this.panel.webview.html = this.getWebviewHtml();
+    const workspaceResourceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
 
-    this.panel.onDidDispose(() => this.dispose(), null, this.disposables);
-    this.panel.webview.onDidReceiveMessage((message: unknown) => {
+    this.webviewPanel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.context.extensionUri, "media"),
+        this.context.extensionUri,
+        ...workspaceResourceRoots
+      ]
+    };
+
+    this.webviewPanel.webview.html = this.getWebviewHtml();
+
+    this.webviewPanel.onDidDispose(() => this.dispose(), null, this.disposables);
+    this.webviewPanel.webview.onDidReceiveMessage((message: unknown) => {
       void this.handleMessage(message);
+    }, null, this.disposables);
+
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      this.handleTextDocumentChange(event.document);
+    }, null, this.disposables);
+
+    vscode.window.onDidChangeActiveColorTheme(() => {
+      this.scheduleRender();
     }, null, this.disposables);
 
     this.scheduleRender();
   }
 
-  public handleTextDocumentChange(document: vscode.TextDocument): void {
+  private handleTextDocumentChange(document: vscode.TextDocument): void {
     if (document.uri.toString() !== this.currentDocument.uri.toString()) {
       return;
     }
@@ -97,21 +115,7 @@ export class PreviewPanel {
     this.scheduleRender();
   }
 
-  public handleActiveEditorChange(editor: vscode.TextEditor | undefined): void {
-    if (!editor || editor.document.languageId !== "markdown") {
-      return;
-    }
-
-    this.setDocument(editor.document);
-  }
-
-  public handleThemeChange(): void {
-    this.scheduleRender();
-  }
-
-  public dispose(): void {
-    PreviewPanel.currentPanelInstance = undefined;
-
+  private dispose(): void {
     if (this.renderTimer) {
       clearTimeout(this.renderTimer);
       this.renderTimer = undefined;
@@ -121,11 +125,6 @@ export class PreviewPanel {
       const disposable = this.disposables.pop();
       disposable?.dispose();
     }
-  }
-
-  private setDocument(document: vscode.TextDocument): void {
-    this.currentDocument = document;
-    this.scheduleRender();
   }
 
   private scheduleRender(): void {
@@ -147,7 +146,7 @@ export class PreviewPanel {
     const theme = this.getThemeKind();
     const html = renderMarkdown({
       document: this.currentDocument,
-      webview: this.panel.webview,
+      webview: this.webviewPanel.webview,
       workspaceFolder: vscode.workspace.getWorkspaceFolder(this.currentDocument.uri),
       settings
     });
@@ -159,7 +158,7 @@ export class PreviewPanel {
       title
     };
 
-    this.panel.title = `markdown-studio: ${title}`;
+    this.webviewPanel.title = title;
     this.postRenderPayload(payload);
   }
 
@@ -169,7 +168,7 @@ export class PreviewPanel {
       return;
     }
 
-    void this.panel.webview.postMessage(payload);
+    void this.webviewPanel.webview.postMessage(payload);
   }
 
   private getThemeKind(): "light" | "dark" {
@@ -190,7 +189,7 @@ export class PreviewPanel {
       if (this.pendingRenderPayload) {
         const pendingPayload = this.pendingRenderPayload;
         this.pendingRenderPayload = undefined;
-        void this.panel.webview.postMessage(pendingPayload);
+        void this.webviewPanel.webview.postMessage(pendingPayload);
       }
 
       return;
@@ -223,12 +222,12 @@ export class PreviewPanel {
 
     try {
       if (MARKDOWN_EXTENSIONS.has(extension)) {
-        const markdownDocument = await vscode.workspace.openTextDocument(targetUri.with({ fragment: "" }));
-        await vscode.window.showTextDocument(markdownDocument, {
-          preview: false,
-          viewColumn: vscode.window.activeTextEditor?.viewColumn ?? vscode.ViewColumn.One
-        });
-        this.setDocument(markdownDocument);
+        await vscode.commands.executeCommand(
+          "vscode.openWith",
+          targetUri.with({ fragment: "" }),
+          CustomEditorProvider.viewType,
+          this.webviewPanel.viewColumn
+        );
         return;
       }
 
@@ -252,7 +251,7 @@ export class PreviewPanel {
   }
 
   private getWebviewHtml(): string {
-    const webview = this.panel.webview;
+    const webview = this.webviewPanel.webview;
     const nonce = createNonce();
     const initialTheme = this.getThemeKind();
 

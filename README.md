@@ -1,10 +1,11 @@
-# Claude UI Markdown Viewer
+# markdown-studio
 
-VS Code extension that previews Markdown files in a Claude-style webview experience.
+VS Code extension that previews Markdown files in a Markdown Studio webview experience.
 
 ## Features
 
-- Custom preview command: `Claude Markdown: Open Preview`
+- Custom preview command: `markdown-studio: Open Preview`
+- `Open With...` integration for `.md` and `.markdown` files via `markdown-studio`
 - Live content updates while editing Markdown
 - VS Code light/dark theme sync
 - Enhanced markdown support:
@@ -38,11 +39,12 @@ VS Code extension that previews Markdown files in a Claude-style webview experie
 ## Usage
 
 1. Open a Markdown file.
-2. Run command palette action:
-   - `Claude Markdown: Open Preview`
+2. Use one of these flows:
+   - Right-click the file tab or explorer item and choose `Open With...` -> `markdown-studio`
+   - Run command palette action: `markdown-studio: Open Preview`
 3. Keep editing the Markdown file and watch the preview refresh automatically.
 
 ## Notes
 
 - Raw HTML in markdown is disabled (`markdown-it` with `html: false`) for safer rendering.
-- v1 intentionally excludes scroll-sync, PDF export, and custom-editor replacement.
+- v1 intentionally excludes scroll-sync and PDF export.
