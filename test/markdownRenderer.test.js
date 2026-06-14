@@ -140,6 +140,11 @@ function createContext(markdown, settings = {}) {
       enableMath: true,
       enableTaskLists: true,
       enableFootnotes: true,
+      showLineNumbers: false,
+      enableFrontmatter: true,
+      enableEmoji: true,
+      enablePlantuml: false,
+      plantumlServerUrl: "https://www.plantuml.com/plantuml",
       ...settings
     }
   };
@@ -171,7 +176,7 @@ test("renders mermaid fenced block as a mermaid container when enabled", () => {
     })
   );
 
-  assert.match(html, /<div class="mermaid">/u);
+  assert.match(html, /<div class="mermaid"[^>]*>/u);
   assert.match(html, /graph TD;/u);
 });
 
@@ -184,7 +189,7 @@ test("falls back to code block rendering for mermaid fences when disabled", () =
   );
 
   assert.doesNotMatch(html, /<div class="mermaid">/u);
-  assert.match(html, /<pre class="code-block">/u);
+  assert.match(html, /<pre[^>]*class="code-block"[^>]*>/u);
 });
 
 test("rewrites external links with external metadata and target blank", () => {
@@ -231,6 +236,35 @@ test("escapes unknown code block content to avoid raw HTML output", () => {
   assert.match(html, /&lt;script&gt;alert\(&#39;xss&#39;\)&lt;\/script&gt;/u);
 });
 
+test("stamps data-line attributes on block-level elements from source map", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // Line 0: heading, Line 2: paragraph (blank line separates them)
+  const html = renderMarkdown(createContext("# Hello World\n\nThis is a paragraph."));
+
+  // Heading opens at line 0
+  assert.match(html, /data-line="0"/u);
+  // Paragraph opens at line 2
+  assert.match(html, /data-line="2"/u);
+});
+
+test("stamps data-line on fenced code blocks", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // Line 0: fence open, Line 2: paragraph after blank line
+  const html = renderMarkdown(createContext("```js\nconsole.log(1);\n```\n\nText"));
+
+  // The outer <pre class="code-block"> should carry data-line="0"
+  assert.match(html, /<pre[^>]*data-line="0"[^>]*>/u);
+});
+
+test("stamps data-line on mermaid fenced blocks", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("```mermaid\ngraph TD;\nA-->B;\n```", { enableMermaid: true })
+  );
+
+  assert.match(html, /<div class="mermaid" data-line="0">/u);
+});
+
 test("respects task list, math, and footnote feature toggles", () => {
   const { renderMarkdown } = loadRendererModule();
   const markdown = "- [x] done\n\nInline math $a+b$\n\nRef[^1]\n\n[^1]: Note";
@@ -252,4 +286,188 @@ test("respects task list, math, and footnote feature toggles", () => {
   assert.doesNotMatch(disabledHtml, /class="katex"/u);
   assert.doesNotMatch(disabledHtml, /footnote-ref/u);
   assert.doesNotMatch(disabledHtml, /<section class="footnotes">/u);
+});
+
+test("code fence renders language badge and copy button", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("```javascript\nconsole.log(1);\n```"));
+
+  // Language label badge should show the fence language
+  assert.match(html, /class="code-block-lang"/u);
+  assert.match(html, /javascript/u);
+
+  // Copy button must be present inside the code block toolbar
+  assert.match(html, /class="code-copy-btn"/u);
+  assert.match(html, /aria-label="Copy code"/u);
+
+  // The outer <pre class="code-block"> must still carry data-line (Phase 1 invariant)
+  assert.match(html, /<pre[^>]*data-line="0"[^>]*>/u);
+});
+
+test("code fence with no language shows text badge and copy button", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("```\nhello world\n```"));
+
+  assert.match(html, /code-block-lang/u);
+  assert.match(html, /code-copy-btn/u);
+});
+
+// ── Phase 5 tests ─────────────────────────────────────────────────────────────
+
+test("GFM alert blockquote produces markdown-alert-note class", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("> [!NOTE]\n> This is a note.")
+  );
+
+  assert.match(html, /markdown-alert-note/u);
+  assert.match(html, /markdown-alert-title/u);
+  // Title text should be "Note"
+  assert.match(html, /Note/u);
+  // The [!NOTE] marker itself should not appear in the output
+  assert.doesNotMatch(html, /\[!NOTE\]/u);
+});
+
+test("heading gets a slug id and a heading-anchor link", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("## Hello World"));
+
+  // Heading should have id="hello-world"
+  assert.match(html, /id="hello-world"/u);
+  // Anchor link pointing to the same slug
+  assert.match(html, /class="heading-anchor"/u);
+  assert.match(html, /href="#hello-world"/u);
+});
+
+test("front matter renders a .frontmatter table and is not shown raw", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const markdown = "---\ntitle: My Doc\nauthor: Alice\n---\n\n# Content";
+  const html = renderMarkdown(createContext(markdown));
+
+  // Front matter table should be present
+  assert.match(html, /class="frontmatter"/u);
+  assert.match(html, /My Doc/u);
+  assert.match(html, /Alice/u);
+  // The raw --- delimiter should not appear as an <hr>
+  assert.doesNotMatch(html, /<hr/u);
+});
+
+test("front matter is suppressed when enableFrontmatter is false", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const markdown = "---\ntitle: My Doc\n---\n\n# Content";
+  const html = renderMarkdown(createContext(markdown, { enableFrontmatter: false }));
+
+  assert.doesNotMatch(html, /class="frontmatter"/u);
+});
+
+test("front matter offsets data-line so heading reflects its original document line", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // Original document (0-indexed lines):
+  //   0: ---
+  //   1: title: X
+  //   2: ---          ← closeIndex = 2, frontmatterLineOffset = 3
+  //   3: (blank)
+  //   4: # Heading    ← stripped body line 1; 1 + 3 = 4
+  //   5: (blank)
+  //   6: Body
+  const markdown = "---\ntitle: X\n---\n\n# Heading\n\nBody";
+  const html = renderMarkdown(createContext(markdown, { enableFrontmatter: true }));
+
+  // The heading must carry the original document line number (4), not its stripped-body line (1).
+  assert.match(html, /data-line="4"/u);
+  // Ensure line 1 (stripped offset) is NOT used for the heading element
+  assert.doesNotMatch(html, /<h[1-6][^>]*data-line="1"[^>]*>/u);
+});
+
+test("emoji shortcodes render to emoji characters", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("Launch :rocket: now!"));
+
+  // :rocket: should become the rocket emoji 🚀
+  assert.match(html, /🚀/u); // 🚀 as surrogate pair
+  assert.doesNotMatch(html, /:rocket:/u);
+});
+
+// ── Phase 7 tests: export mode ─────────────────────────────────────────────────
+
+test("renderMarkdown with exportMode:true resolves local image src to file:// URI (not vscode-webview:)", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const md = "![diagram](./assets/diagram.png)";
+  // In webview mode (default), asWebviewUri produces vscode-webview: URIs.
+  const webviewHtml = renderMarkdown(createContext(md));
+  assert.match(webviewHtml, /vscode-webview:/u);
+
+  // In export mode, the src must be an absolute file:// URI.
+  const exportHtml = renderMarkdown({
+    ...createContext(md),
+    exportMode: true
+  });
+  assert.doesNotMatch(exportHtml, /vscode-webview:/u);
+  assert.match(exportHtml, /src="file:\/\//u);
+});
+
+test("renderMarkdownForExport resolves local image src to file:// URI without a webview object", () => {
+  const { renderMarkdownForExport } = loadRendererModule();
+  const md = "![diagram](./assets/diagram.png)";
+  const { document, workspaceFolder, settings } = createContext(md);
+  const html = renderMarkdownForExport({ document, workspaceFolder, settings });
+
+  assert.doesNotMatch(html, /vscode-webview:/u);
+  assert.match(html, /src="file:\/\//u);
+});
+
+test("renderMarkdownForExport leaves external image src unchanged", () => {
+  const { renderMarkdownForExport } = loadRendererModule();
+  const md = "![remote](https://example.com/image.png)";
+  const { document, workspaceFolder, settings } = createContext(md);
+  const html = renderMarkdownForExport({ document, workspaceFolder, settings });
+
+  assert.match(html, /src="https:\/\/example\.com\/image\.png"/u);
+});
+
+test("renderMarkdownForExport resolves local asset links to file:// URIs", () => {
+  const { renderMarkdownForExport } = loadRendererModule();
+  const md = "[spec](./assets/spec.pdf)";
+  const { document, workspaceFolder, settings } = createContext(md);
+  const html = renderMarkdownForExport({ document, workspaceFolder, settings });
+
+  assert.doesNotMatch(html, /vscode-webview:/u);
+  assert.match(html, /href="file:\/\//u);
+});
+
+// ── Phase 8 tests: PlantUML ────────────────────────────────────────────────────
+
+test("plantuml fence renders <img class='plantuml-diagram'> with server URL and encoded src when enabled", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("```plantuml\n@startuml\nA -> B : hello\n@enduml\n```", {
+      enablePlantuml: true,
+      plantumlServerUrl: "https://www.plantuml.com/plantuml"
+    })
+  );
+
+  // Must render as an <img> with the plantuml-diagram class
+  assert.match(html, /class="plantuml-diagram"/u);
+  // src must start with the configured server URL + /svg/
+  assert.match(html, /src="https:\/\/www\.plantuml\.com\/plantuml\/svg\//u);
+  // Encoded string after /svg/ must be non-empty
+  assert.match(html, /\/svg\/[A-Za-z0-9_\-]+"/u);
+  // data-line attribute must be present
+  assert.match(html, /data-line="0"/u);
+  // Must NOT render a code-block fallback
+  assert.doesNotMatch(html, /<pre[^>]*class="code-block"[^>]*>/u);
+});
+
+test("plantuml fence falls back to code-block when enablePlantuml is false", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("```plantuml\n@startuml\nA -> B : hello\n@enduml\n```", {
+      enablePlantuml: false
+    })
+  );
+
+  // Must NOT render as a plantuml-diagram img
+  assert.doesNotMatch(html, /class="plantuml-diagram"/u);
+  // Must render as a normal code block
+  assert.match(html, /<pre[^>]*class="code-block"[^>]*>/u);
 });

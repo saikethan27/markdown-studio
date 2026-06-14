@@ -1,15 +1,16 @@
 /**
  * Claude Markdown CSS
- * Scoped styling for markdown elements with Claude's signature aesthetic
- * Use with .claude-styled class to avoid conflicts with host site styles
+ * Scoped styling for markdown elements with Claude's signature aesthetic.
+ * Use with .claude-styled class to avoid conflicts with host site styles.
+ * All visual values are var(--token) references; tokens live in theme.css.
  */
 
 .claude-styled,
 .claude-ui-styled,
 .claude-styled.claude-ui-styled {
-  font-family: var(--font-sans) !important;
-  color: var(--foreground) !important;
-  line-height: 1.7 !important;
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  line-height: var(--leading-body);
 }
 
 .claude-styled h1,
@@ -24,123 +25,249 @@
 .claude-ui-styled h4,
 .claude-ui-styled h5,
 .claude-ui-styled h6 {
-  color: var(--foreground) !important;
-  font-weight: 600 !important;
-  line-height: 1.3 !important;
-  margin-top: 1.5rem !important;
-  margin-bottom: 0.75rem !important;
-  text-shadow: 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent) !important;
+  color: var(--foreground);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-heading);
+  margin-top: var(--space-section);
+  margin-bottom: var(--space-paragraph);
+  letter-spacing: var(--letter-spacing-heading);
+  text-shadow: 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent);
 }
 
 .claude-styled h1,
 .claude-ui-styled h1 {
-  font-size: 1.875rem !important;
-  font-weight: 700 !important;
-  margin-top: 0 !important;
-  margin-bottom: 1rem !important;
+  font-size: var(--text-h1);
+  font-weight: var(--weight-bold);
+  margin-top: 0;
+  margin-bottom: var(--space-block);
 }
 
 .claude-styled h2,
 .claude-ui-styled h2 {
-  font-size: 1.5rem !important;
-  margin-top: 2rem !important;
+  font-size: var(--text-h2);
+  margin-top: var(--space-section-lg);
 }
 
 .claude-styled h3,
 .claude-ui-styled h3 {
-  font-size: 1.25rem !important;
+  font-size: var(--text-h3);
 }
 
 .claude-styled h4,
 .claude-ui-styled h4 {
-  font-size: 1.125rem !important;
+  font-size: var(--text-h4);
 }
 
 .claude-styled h5,
 .claude-ui-styled h5 {
-  font-size: 1rem !important;
+  font-size: var(--text-h5);
 }
 
 .claude-styled h6,
 .claude-ui-styled h6 {
-  font-size: 0.875rem !important;
-  color: var(--muted-foreground) !important;
+  font-size: var(--text-h6);
+  color: var(--muted-foreground);
 }
 
 .claude-styled p,
 .claude-ui-styled p {
-  margin: 0.75rem 0 !important;
-  line-height: 1.7 !important;
+  margin: var(--space-paragraph) 0;
+  line-height: var(--leading-body);
 }
 
 .claude-styled p:first-child,
 .claude-ui-styled p:first-child {
-  margin-top: 0 !important;
+  margin-top: 0;
 }
 
 .claude-styled p:last-child,
 .claude-ui-styled p:last-child {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 .claude-styled strong,
 .claude-styled b,
 .claude-ui-styled strong,
 .claude-ui-styled b {
-  color: var(--primary) !important;
-  font-weight: 600 !important;
+  color: var(--primary);
+  font-weight: var(--weight-semibold);
 }
 
 .claude-styled code:not(pre code),
 .claude-ui-styled code:not(pre code) {
-  background: var(--muted) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-  font-family: var(--font-mono) !important;
-  font-size: 0.875em !important;
-  padding: 0.125rem 0.375rem !important;
-  color: var(--foreground) !important;
+  background: var(--muted);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  padding: 0.125rem 0.375rem;
+  color: var(--foreground);
 }
 
 .claude-styled pre,
 .claude-ui-styled pre {
-  background: var(--card) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-  padding: 1rem !important;
-  overflow-x: auto !important;
-  margin: 1rem 0 !important;
+  background: var(--hl-bg);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  padding: var(--space-block);
+  overflow-x: auto;
+  margin: var(--space-block) 0;
+}
+
+/* --- Code block: toolbar chrome --- */
+.claude-styled pre.code-block,
+.claude-ui-styled pre.code-block {
+  position: relative;
+  padding-top: calc(var(--toolbar-height) + var(--space-block));
+}
+
+.claude-styled .code-block-toolbar,
+.claude-ui-styled .code-block-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--toolbar-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-block);
+  background: color-mix(in oklch, var(--border) 40%, var(--hl-bg));
+  border-bottom: var(--border-width) solid var(--border);
+  border-radius: calc(var(--radius) - var(--border-width)) calc(var(--radius) - var(--border-width)) 0 0;
+  gap: var(--badge-padding-x);
+  user-select: none;
+}
+
+.claude-styled .code-block-lang,
+.claude-ui-styled .code-block-lang {
+  font-family: var(--font-mono);
+  font-size: var(--badge-font-size);
+  font-weight: var(--weight-semibold);
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  padding: var(--badge-padding-y) var(--badge-padding-x);
+  background: color-mix(in oklch, var(--muted) 60%, transparent);
+  border: var(--border-width) solid var(--border);
+  border-radius: calc(var(--radius) - 2px);
+  line-height: 1;
+}
+
+.claude-styled .code-block-lang--unknown,
+.claude-ui-styled .code-block-lang--unknown {
+  opacity: 0.5;
+}
+
+.claude-styled .code-copy-btn,
+.claude-ui-styled .code-copy-btn {
+  font-family: var(--font-sans);
+  font-size: var(--badge-font-size);
+  font-weight: var(--weight-semibold);
+  color: var(--muted-foreground);
+  background: transparent;
+  border: var(--border-width) solid transparent;
+  border-radius: calc(var(--radius) - 2px);
+  padding: var(--badge-padding-y) var(--badge-padding-x);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  line-height: 1;
+  margin-left: auto;
+}
+
+.claude-styled .code-copy-btn:hover,
+.claude-ui-styled .code-copy-btn:hover {
+  color: var(--foreground);
+  background: color-mix(in oklch, var(--muted) 80%, transparent);
+  border-color: var(--border);
+}
+
+.claude-styled .code-copy-btn:focus,
+.claude-ui-styled .code-copy-btn:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.claude-styled .code-copy-btn:active,
+.claude-ui-styled .code-copy-btn:active {
+  color: var(--primary);
+}
+
+/* --- Code block: line numbers --- */
+.claude-styled pre.code-block--ln,
+.claude-ui-styled pre.code-block--ln {
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 0;
+  overflow-x: hidden;
+}
+
+.claude-styled pre.code-block--ln .code-block-body,
+.claude-ui-styled pre.code-block--ln .code-block-body {
+  display: flex;
+  align-items: flex-start;
+  overflow-x: auto;
+  padding: var(--space-block);
+  gap: var(--space-block);
+}
+
+.claude-styled .code-gutter,
+.claude-ui-styled .code-gutter {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  user-select: none;
+  pointer-events: none;
+}
+
+.claude-styled .code-gutter .ln,
+.claude-ui-styled .code-gutter .ln {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  line-height: var(--leading-code);
+  color: var(--muted-foreground);
+  opacity: 0.5;
+  display: block;
+  text-align: right;
+  min-width: 2ch;
+}
+
+.claude-styled pre.code-block--ln code,
+.claude-ui-styled pre.code-block--ln code {
+  flex: 1;
+  min-width: 0;
 }
 
 .claude-styled pre code,
 .claude-ui-styled pre code {
-  background: transparent !important;
-  border: none !important;
-  border-radius: 0 !important;
-  font-family: var(--font-mono) !important;
-  font-size: 0.875rem !important;
-  line-height: 1.6 !important;
-  padding: 0 !important;
-  color: var(--card-foreground) !important;
-  display: block !important;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  line-height: var(--leading-code);
+  padding: 0;
+  color: var(--card-foreground);
+  display: block;
 }
 
 .claude-styled ul,
 .claude-styled ol,
 .claude-ui-styled ul,
 .claude-ui-styled ol {
-  padding-left: 1.5rem !important;
-  margin: 0.75rem 0 !important;
+  padding-left: var(--space-section);
+  margin: var(--space-paragraph) 0;
 }
 
 .claude-styled ul,
 .claude-ui-styled ul {
-  list-style-type: disc !important;
+  list-style-type: disc;
 }
 
 .claude-styled ol,
 .claude-ui-styled ol {
-  list-style-type: decimal !important;
+  list-style-type: decimal;
 }
 
 .claude-styled ul ul,
@@ -151,204 +278,520 @@
 .claude-ui-styled ol ol,
 .claude-ui-styled ul ol,
 .claude-ui-styled ol ul {
-  margin: 0.25rem 0 !important;
+  margin: 0.25rem 0;
 }
 
 .claude-styled li,
 .claude-ui-styled li {
-  margin: 0.375rem 0 !important;
-  line-height: 1.6 !important;
+  margin: 0.375rem 0;
+  line-height: var(--leading-code);
 }
 
 .claude-styled li::marker,
 .claude-ui-styled li::marker {
-  color: var(--primary) !important;
+  color: var(--primary);
 }
 
 .claude-styled blockquote,
 .claude-ui-styled blockquote {
-  border-left: 3px solid var(--primary) !important;
-  background: var(--muted) !important;
-  padding: 0.75rem 1rem !important;
-  margin: 1rem 0 !important;
-  border-radius: 0 var(--radius) var(--radius) 0 !important;
+  border-left: 3px solid var(--primary);
+  background: var(--muted);
+  padding: var(--space-paragraph) var(--space-block);
+  margin: var(--space-block) 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .claude-styled blockquote p,
 .claude-ui-styled blockquote p {
-  margin: 0 !important;
-  color: var(--muted-foreground) !important;
+  margin: 0;
+  color: var(--muted-foreground);
 }
 
 .claude-styled blockquote p + p,
 .claude-ui-styled blockquote p + p {
-  margin-top: 0.5rem !important;
+  margin-top: 0.5rem;
 }
 
 .claude-styled table,
 .claude-ui-styled table {
-  border-collapse: collapse !important;
-  width: 100% !important;
-  margin: 1rem 0 !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--radius) !important;
-  overflow: hidden !important;
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--space-block) 0;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
 }
 
 .claude-styled thead,
 .claude-ui-styled thead {
-  background: var(--muted) !important;
+  background: var(--muted);
 }
 
 .claude-styled th,
 .claude-ui-styled th {
-  color: var(--foreground) !important;
-  font-weight: 600 !important;
-  text-align: left !important;
-  padding: 0.625rem 0.875rem !important;
-  border-bottom: 1px solid var(--border) !important;
+  color: var(--foreground);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  padding: 0.625rem 0.875rem;
+  border-bottom: var(--border-width) solid var(--border);
 }
 
 .claude-styled td,
 .claude-ui-styled td {
-  padding: 0.625rem 0.875rem !important;
-  border-bottom: 1px solid var(--border) !important;
-  color: var(--foreground) !important;
+  padding: 0.625rem 0.875rem;
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--foreground);
 }
 
 .claude-styled tbody tr:last-child td,
 .claude-ui-styled tbody tr:last-child td {
-  border-bottom: none !important;
+  border-bottom: none;
 }
 
 .claude-styled tbody tr:nth-child(even),
 .claude-ui-styled tbody tr:nth-child(even) {
-  background: var(--muted) !important;
+  background: var(--muted);
 }
 
 .claude-styled a,
 .claude-ui-styled a {
-  color: var(--primary) !important;
-  text-decoration: none !important;
-  transition: opacity 0.15s ease !important;
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.15s ease;
 }
 
 .claude-styled a:hover,
 .claude-ui-styled a:hover {
-  text-decoration: underline !important;
-  opacity: 0.8 !important;
+  text-decoration: underline;
+  opacity: 0.8;
 }
 
 .claude-styled a:focus,
 .claude-ui-styled a:focus {
-  outline: 2px solid var(--ring) !important;
-  outline-offset: 2px !important;
-  border-radius: 2px !important;
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .claude-styled hr,
 .claude-ui-styled hr {
-  border: none !important;
-  border-top: 1px solid var(--border) !important;
-  margin: 1.5rem 0 !important;
+  border: none;
+  border-top: var(--border-width) solid var(--border);
+  margin: var(--space-section) 0;
 }
 
 .claude-styled em,
 .claude-styled i,
 .claude-ui-styled em,
 .claude-ui-styled i {
-  font-style: italic !important;
-  color: var(--foreground) !important;
+  font-style: italic;
+  color: var(--foreground);
 }
 
 .claude-styled s,
 .claude-styled del,
 .claude-ui-styled s,
 .claude-ui-styled del {
-  text-decoration: line-through !important;
-  color: var(--muted-foreground) !important;
+  text-decoration: line-through;
+  color: var(--muted-foreground);
 }
 
 .claude-styled sub,
 .claude-styled sup,
 .claude-ui-styled sub,
 .claude-ui-styled sup {
-  font-size: 0.75em !important;
-  line-height: 0 !important;
+  font-size: 0.75em;
+  line-height: 0;
 }
 
 .claude-styled sup,
 .claude-ui-styled sup {
-  vertical-align: super !important;
+  vertical-align: super;
 }
 
 .claude-styled sub,
 .claude-ui-styled sub {
-  vertical-align: sub !important;
+  vertical-align: sub;
 }
 
 .claude-styled kbd,
 .claude-ui-styled kbd {
-  background: var(--card) !important;
-  border: 1px solid var(--border) !important;
-  border-bottom-width: 2px !important;
-  border-radius: calc(var(--radius) - 2px) !important;
-  font-family: var(--font-mono) !important;
-  font-size: 0.875em !important;
-  padding: 0.125rem 0.375rem !important;
-  color: var(--card-foreground) !important;
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: calc(var(--radius) - 2px);
+  font-family: var(--font-mono);
+  font-size: var(--text-code);
+  padding: 0.125rem 0.375rem;
+  color: var(--card-foreground);
 }
 
 .claude-styled mark,
 .claude-ui-styled mark {
-  background: var(--accent) !important;
-  color: var(--accent-foreground) !important;
-  padding: 0.125rem 0.25rem !important;
-  border-radius: calc(var(--radius) - 4px) !important;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  padding: 0.125rem 0.25rem;
+  border-radius: calc(var(--radius) - 4px);
 }
 
 .claude-styled dl,
 .claude-ui-styled dl {
-  margin: 0.75rem 0 !important;
+  margin: var(--space-paragraph) 0;
 }
 
 .claude-styled dt,
 .claude-ui-styled dt {
-  font-weight: 600 !important;
-  color: var(--foreground) !important;
-  margin-top: 0.75rem !important;
+  font-weight: var(--weight-semibold);
+  color: var(--foreground);
+  margin-top: var(--space-paragraph);
 }
 
 .claude-styled dd,
 .claude-ui-styled dd {
-  margin-left: 1.5rem !important;
-  color: var(--muted-foreground) !important;
+  margin-left: var(--space-section);
+  color: var(--muted-foreground);
 }
 
 .claude-styled li > p,
 .claude-ui-styled li > p {
-  margin: 0.25rem 0 !important;
+  margin: 0.25rem 0;
 }
 
 .claude-styled li > ul,
 .claude-styled li > ol,
 .claude-ui-styled li > ul,
 .claude-ui-styled li > ol {
-  margin: 0.25rem 0 !important;
+  margin: 0.25rem 0;
 }
 
 .claude-styled blockquote > *:first-child,
 .claude-ui-styled blockquote > *:first-child {
-  margin-top: 0 !important;
+  margin-top: 0;
 }
 
 .claude-styled blockquote > *:last-child,
 .claude-ui-styled blockquote > *:last-child {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
+
+/* ============================================================
+   SYNTAX HIGHLIGHTING — highlight.js token classes
+   All colors drive from --hl-* tokens defined in theme.css.
+   ============================================================ */
+
+.claude-styled pre.code-block,
+.claude-ui-styled pre.code-block,
+.claude-styled .hljs,
+.claude-ui-styled .hljs {
+  background: var(--hl-bg);
+  color: var(--card-foreground);
+}
+
+.claude-styled .hljs-keyword,
+.claude-ui-styled .hljs-keyword,
+.claude-styled .hljs-selector-tag,
+.claude-ui-styled .hljs-selector-tag {
+  color: var(--hl-keyword);
+  font-weight: var(--weight-semibold);
+}
+
+.claude-styled .hljs-built_in,
+.claude-ui-styled .hljs-built_in {
+  color: var(--hl-function);
+}
+
+.claude-styled .hljs-type,
+.claude-ui-styled .hljs-type {
+  color: var(--hl-type);
+}
+
+.claude-styled .hljs-string,
+.claude-ui-styled .hljs-string,
+.claude-styled .hljs-template-variable,
+.claude-ui-styled .hljs-template-variable {
+  color: var(--hl-string);
+}
+
+.claude-styled .hljs-number,
+.claude-ui-styled .hljs-number,
+.claude-styled .hljs-literal,
+.claude-ui-styled .hljs-literal {
+  color: var(--hl-number);
+}
+
+.claude-styled .hljs-comment,
+.claude-ui-styled .hljs-comment {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.claude-styled .hljs-title,
+.claude-ui-styled .hljs-title,
+.claude-styled .hljs-title.function_,
+.claude-ui-styled .hljs-title.function_,
+.claude-styled .hljs-function,
+.claude-ui-styled .hljs-function {
+  color: var(--hl-function);
+}
+
+.claude-styled .hljs-variable,
+.claude-ui-styled .hljs-variable,
+.claude-styled .hljs-symbol,
+.claude-ui-styled .hljs-symbol {
+  color: var(--hl-variable);
+}
+
+.claude-styled .hljs-attr,
+.claude-ui-styled .hljs-attr,
+.claude-styled .hljs-attribute,
+.claude-ui-styled .hljs-attribute,
+.claude-styled .hljs-property,
+.claude-ui-styled .hljs-property {
+  color: var(--hl-attr);
+}
+
+.claude-styled .hljs-tag,
+.claude-ui-styled .hljs-tag {
+  color: var(--hl-tag);
+}
+
+.claude-styled .hljs-name,
+.claude-ui-styled .hljs-name {
+  color: var(--hl-tag);
+}
+
+.claude-styled .hljs-operator,
+.claude-ui-styled .hljs-operator {
+  color: var(--hl-operator);
+}
+
+.claude-styled .hljs-meta,
+.claude-ui-styled .hljs-meta {
+  color: var(--hl-meta);
+}
+
+.claude-styled .hljs-deletion,
+.claude-ui-styled .hljs-deletion {
+  color: var(--hl-deletion);
+  background: color-mix(in oklch, var(--hl-deletion) 15%, transparent);
+}
+
+.claude-styled .hljs-addition,
+.claude-ui-styled .hljs-addition {
+  color: var(--hl-addition);
+  background: color-mix(in oklch, var(--hl-addition) 15%, transparent);
+}
+
+/* ============================================================
+   KATEX — keep !important only here, needed to override
+   injected KaTeX inline styles in the webview.
+   ============================================================ */
 
 .claude-styled .katex-display,
 .claude-ui-styled .katex-display {
   overflow-x: auto !important;
   overflow-y: hidden !important;
 }
+
+/* ============================================================
+   GFM ALERTS / ADMONITIONS (Feature 1)
+   ============================================================ */
+
+.claude-styled .markdown-alert,
+.claude-ui-styled .markdown-alert {
+  border-left: 4px solid var(--primary);
+  background: var(--muted);
+  padding: var(--space-paragraph) var(--space-block);
+  margin: var(--space-block) 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.claude-styled .markdown-alert .markdown-alert-title,
+.claude-ui-styled .markdown-alert .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-small);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem 0;
+}
+
+.claude-styled .markdown-alert p,
+.claude-ui-styled .markdown-alert p {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.claude-styled .markdown-alert p + p,
+.claude-ui-styled .markdown-alert p + p {
+  margin-top: 0.5rem;
+}
+
+/* Note */
+.claude-styled .markdown-alert-note,
+.claude-ui-styled .markdown-alert-note {
+  border-left-color: var(--alert-note);
+  background: var(--alert-note-bg);
+}
+
+.claude-styled .markdown-alert-note .markdown-alert-title,
+.claude-ui-styled .markdown-alert-note .markdown-alert-title {
+  color: var(--alert-note);
+}
+
+/* Tip */
+.claude-styled .markdown-alert-tip,
+.claude-ui-styled .markdown-alert-tip {
+  border-left-color: var(--alert-tip);
+  background: var(--alert-tip-bg);
+}
+
+.claude-styled .markdown-alert-tip .markdown-alert-title,
+.claude-ui-styled .markdown-alert-tip .markdown-alert-title {
+  color: var(--alert-tip);
+}
+
+/* Important */
+.claude-styled .markdown-alert-important,
+.claude-ui-styled .markdown-alert-important {
+  border-left-color: var(--alert-important);
+  background: var(--alert-important-bg);
+}
+
+.claude-styled .markdown-alert-important .markdown-alert-title,
+.claude-ui-styled .markdown-alert-important .markdown-alert-title {
+  color: var(--alert-important);
+}
+
+/* Warning */
+.claude-styled .markdown-alert-warning,
+.claude-ui-styled .markdown-alert-warning {
+  border-left-color: var(--alert-warning);
+  background: var(--alert-warning-bg);
+}
+
+.claude-styled .markdown-alert-warning .markdown-alert-title,
+.claude-ui-styled .markdown-alert-warning .markdown-alert-title {
+  color: var(--alert-warning);
+}
+
+/* Caution */
+.claude-styled .markdown-alert-caution,
+.claude-ui-styled .markdown-alert-caution {
+  border-left-color: var(--alert-caution);
+  background: var(--alert-caution-bg);
+}
+
+.claude-styled .markdown-alert-caution .markdown-alert-title,
+.claude-ui-styled .markdown-alert-caution .markdown-alert-title {
+  color: var(--alert-caution);
+}
+
+/* ============================================================
+   HEADING ANCHORS (Feature 2)
+   ============================================================ */
+
+.claude-styled h1,
+.claude-styled h2,
+.claude-styled h3,
+.claude-styled h4,
+.claude-styled h5,
+.claude-styled h6,
+.claude-ui-styled h1,
+.claude-ui-styled h2,
+.claude-ui-styled h3,
+.claude-ui-styled h4,
+.claude-ui-styled h5,
+.claude-ui-styled h6 {
+  position: relative;
+}
+
+.claude-styled .heading-anchor,
+.claude-ui-styled .heading-anchor {
+  opacity: 0;
+  color: var(--muted-foreground);
+  text-decoration: none;
+  font-weight: var(--weight-normal);
+  margin-left: 0.4em;
+  font-size: 0.85em;
+  transition: opacity 0.15s ease, color 0.15s ease;
+  user-select: none;
+}
+
+.claude-styled h1:hover .heading-anchor,
+.claude-styled h2:hover .heading-anchor,
+.claude-styled h3:hover .heading-anchor,
+.claude-styled h4:hover .heading-anchor,
+.claude-styled h5:hover .heading-anchor,
+.claude-styled h6:hover .heading-anchor,
+.claude-ui-styled h1:hover .heading-anchor,
+.claude-ui-styled h2:hover .heading-anchor,
+.claude-ui-styled h3:hover .heading-anchor,
+.claude-ui-styled h4:hover .heading-anchor,
+.claude-ui-styled h5:hover .heading-anchor,
+.claude-ui-styled h6:hover .heading-anchor {
+  opacity: 1;
+}
+
+.claude-styled .heading-anchor:hover,
+.claude-ui-styled .heading-anchor:hover {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+/* ============================================================
+   FRONT MATTER TABLE (Feature 3)
+   ============================================================ */
+
+.claude-styled table.frontmatter,
+.claude-ui-styled table.frontmatter {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 var(--space-section) 0;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  font-size: var(--text-small);
+}
+
+.claude-styled table.frontmatter th,
+.claude-ui-styled table.frontmatter th {
+  font-weight: var(--weight-semibold);
+  color: var(--muted-foreground);
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  border-bottom: var(--border-width) solid var(--border);
+  background: var(--muted);
+  white-space: nowrap;
+  width: 1%;
+}
+
+.claude-styled table.frontmatter td,
+.claude-ui-styled table.frontmatter td {
+  padding: 0.4rem 0.75rem;
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--foreground);
+}
+
+.claude-styled table.frontmatter tr:last-child th,
+.claude-styled table.frontmatter tr:last-child td,
+.claude-ui-styled table.frontmatter tr:last-child th,
+.claude-ui-styled table.frontmatter tr:last-child td {
+  border-bottom: none;
+}
+
+/* ============================================================
+   WORD COUNT / READING TIME (Feature 5)
+   ============================================================ */
+
+.doc-meta {
+  font-size: var(--text-small);
+  color: var(--muted-foreground);
+  font-family: var(--font-sans);
+  margin-left: auto;
+  white-space: nowrap;
+  opacity: 0.8;
+}
+

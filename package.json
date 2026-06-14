@@ -42,7 +42,36 @@
     "commands": [
       {
         "command": "claudeMarkdownPreview.openPreview",
-        "title": "markdown-studio: Open Preview"
+        "title": "markdown-studio: Open Preview",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "claudeMarkdownPreview.exportHtml",
+        "title": "markdown-studio: Export to HTML"
+      },
+      {
+        "command": "claudeMarkdownPreview.exportPdf",
+        "title": "markdown-studio: Print / Export to PDF"
+      },
+      {
+        "command": "claudeMarkdownPreview.copyHtml",
+        "title": "markdown-studio: Copy Rendered HTML"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "claudeMarkdownPreview.openPreview",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "claudeMarkdownPreview.openPreview",
+        "key": "ctrl+alt+m",
+        "when": "editorLangId == markdown"
       }
     ],
     "configuration": {
@@ -73,6 +102,47 @@
           "type": "boolean",
           "default": true,
           "description": "Enable markdown footnote syntax."
+        },
+        "claudeMarkdownPreview.showLineNumbers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show line number gutter in code blocks."
+        },
+        "claudeMarkdownPreview.scrollSync": {
+          "type": "boolean",
+          "default": true,
+          "description": "Synchronize scroll position between the editor and the markdown-studio preview."
+        },
+        "claudeMarkdownPreview.enableFrontmatter": {
+          "type": "boolean",
+          "default": true,
+          "description": "Parse and render YAML front matter (--- blocks) as a metadata table at the top of the preview."
+        },
+        "claudeMarkdownPreview.enableEmoji": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable emoji shortcode rendering (e.g. :rocket: → 🚀)."
+        },
+        "claudeMarkdownPreview.theme": {
+          "type": "string",
+          "enum": ["claude", "github"],
+          "default": "claude",
+          "description": "Visual theme style for the markdown preview. 'claude' uses the built-in warm token palette; 'github' approximates GitHub's Markdown styling."
+        },
+        "claudeMarkdownPreview.customCssPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a custom CSS file to load last in the preview (absolute, or relative to the workspace root). Override CSS custom properties to re-theme the preview without touching extension files."
+        },
+        "claudeMarkdownPreview.enablePlantuml": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable PlantUML diagram rendering for fenced code blocks tagged as plantuml or puml. Diagram text is sent to the configured PlantUML server URL."
+        },
+        "claudeMarkdownPreview.plantumlServerUrl": {
+          "type": "string",
+          "default": "https://www.plantuml.com/plantuml",
+          "description": "Base URL of the PlantUML server used to render diagrams (e.g. https://www.plantuml.com/plantuml). The server receives the encoded diagram text; requires network access."
         }
       }
     }
@@ -86,6 +156,7 @@
     "highlight.js": "^11.11.1",
     "katex": "^0.16.25",
     "markdown-it": "^14.1.0",
+    "markdown-it-emoji": "^3.0.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-katex": "^2.0.3",
     "markdown-it-task-lists": "^2.1.1",
