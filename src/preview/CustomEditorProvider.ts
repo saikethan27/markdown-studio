@@ -23,7 +23,11 @@ interface OpenLinkMessage {
   sourceDoc: string;
 }
 
-type IncomingWebviewMessage = ReadyMessage | OpenLinkMessage;
+interface OpenEditorMessage {
+  type: "openEditor";
+}
+
+type IncomingWebviewMessage = ReadyMessage | OpenLinkMessage | OpenEditorMessage;
 
 interface HrefParts {
   pathPart: string;
@@ -198,6 +202,15 @@ class CustomEditorSession {
     if (message.type === "openLink") {
       await this.handleOpenLink(message.href, message.sourceDoc);
     }
+
+    if (message.type === "openEditor") {
+      await vscode.commands.executeCommand(
+        "vscode.openWith",
+        this.currentDocument.uri,
+        "default",
+        vscode.ViewColumn.Beside
+      );
+    }
   }
 
   private async handleOpenLink(rawHref: string, sourceDoc: string): Promise<void> {
@@ -308,6 +321,11 @@ class CustomEditorSession {
   <div class="claude-shell">
     <header class="preview-header">
       <div class="preview-title" id="docTitle">markdown-studio</div>
+      <div class="preview-toolbar">
+        <button class="toolbar-btn" id="collapseAllBtn" title="Collapse All Sections">&#8597; Collapse All</button>
+        <span class="toolbar-separator"></span>
+        <button class="toolbar-btn" id="editBtn" title="Edit Source">&#9998; Edit</button>
+      </div>
     </header>
     <main class="preview-main">
       <article class="preview-content claude-styled" id="content"></article>
@@ -326,7 +344,7 @@ function isIncomingMessage(value: unknown): value is IncomingWebviewMessage {
   }
 
   const candidate = value as Partial<IncomingWebviewMessage>;
-  return candidate.type === "ready" || candidate.type === "openLink";
+  return candidate.type === "ready" || candidate.type === "openLink" || candidate.type === "openEditor";
 }
 
 function parseSourceDocumentUri(value: string): vscode.Uri | undefined {

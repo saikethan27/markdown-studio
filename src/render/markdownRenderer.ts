@@ -109,6 +109,34 @@ function createMarkdownRenderer(context: RenderContext): any {
     return self.renderToken(tokens, index, options);
   };
 
+  const headingSlugs = new Map<string, number>();
+  markdown.renderer.rules.heading_open = (
+    tokens: any[],
+    index: number,
+    options: any,
+    env: any,
+    self: any
+  ) => {
+    const token = tokens[index];
+    const contentToken = tokens[index + 1];
+    const textContent = (contentToken?.children ?? [])
+      .filter((t: any) => t.type === "text" || t.type === "code_inline")
+      .map((t: any) => t.content)
+      .join("");
+
+    let slug = slugify(textContent);
+    const count = headingSlugs.get(slug) ?? 0;
+    headingSlugs.set(slug, count + 1);
+    if (count > 0) {
+      slug = `${slug}-${count}`;
+    }
+
+    token.attrSet("id", slug);
+    token.attrSet("data-heading-level", token.tag.slice(1));
+
+    return self.renderToken(tokens, index, options);
+  };
+
   const defaultLinkOpenRule = markdown.renderer.rules.link_open;
   markdown.renderer.rules.link_open = (
     tokens: any[],
@@ -268,6 +296,17 @@ function isExternalHref(value: string): boolean {
 
 function isLikelyWindowsAbsolutePath(value: string): boolean {
   return /^[a-z]:[/\\]/iu.test(value);
+}
+
+function slugify(text: string): string {
+  return text
+    .replace(/<[^>]*>/gu, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/gu, "")
+    .replace(/\s+/gu, "-")
+    .replace(/-+/gu, "-")
+    .replace(/^-|-$/gu, "");
 }
 
 function getFenceLanguage(info: string): string {

@@ -352,3 +352,74 @@
   overflow-x: auto !important;
   overflow-y: hidden !important;
 }
+
+.claude-styled .mermaid-viewport {
+  position: relative !important;
+  overflow: hidden !important;
+  min-height: 120px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  cursor: grab !important;
+  background: var(--card) !important;
+  margin: 1rem 0 !important;
+}
+
+.claude-styled .mermaid-viewport:active {
+  cursor: grabbing !important;
+}
+
+.claude-styled .mermaid-viewport .mermaid {
+  margin: 0 !important;
+  padding: 1rem !important;
+  display: inline-block !important;
+}
+
+.claude-styled .mermaid-controls {
+  position: absolute !important;
+  top: 0.5rem !important;
+  right: 0.5rem !important;
+  display: flex !important;
+  gap: 0.25rem !important;
+  z-index: 10 !important;
+  opacity: 0.4 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.claude-styled .mermaid-viewport:hover .mermaid-controls {
+  opacity: 1 !important;
+}
+
+.claude-styled .mermaid-ctrl-btn {
+  background: var(--card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  color: var(--foreground) !important;
+  cursor: pointer !important;
+  font-size: 0.8rem !important;
+  padding: 0.2rem 0.5rem !important;
+  line-height: 1 !important;
+  transition: background 0.15s ease !important;
+  font-family: var(--font-sans) !important;
+  white-space: nowrap !important;
+}
+
+.claude-styled .mermaid-ctrl-btn:hover {
+  background: var(--accent) !important;
+}
+
+.claude-styled .collapse-toggle {
+  display: inline-block !important;
+  width: 1em !important;
+  margin-right: 0.3rem !important;
+  font-size: 0.6em !important;
+  vertical-align: middle !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  color: var(--muted-foreground) !important;
+  transition: color 0.15s ease !important;
+  line-height: 1 !important;
+}
+
+.claude-styled .collapse-toggle:hover {
+  color: var(--primary) !important;
+}

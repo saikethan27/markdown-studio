@@ -2,6 +2,17 @@
 
 VS Code extension that previews Markdown files in a Markdown Studio webview experience.
 
+## Development
+
+1. Install dependencies:
+   - `npm install`
+2. Build:
+   - `npm run compile`
+3. Run extension in development:
+   - Press `F5` in VS Code to launch an Extension Development Host.
+4. Build extension:
+   - Run `npx @vscode/vsce package`
+   
 ## Features
 
 - Custom preview command: `markdown-studio: Open Preview`
@@ -27,14 +38,8 @@ VS Code extension that previews Markdown files in a Markdown Studio webview expe
 - `claudeMarkdownPreview.enableTaskLists` (default `true`)
 - `claudeMarkdownPreview.enableFootnotes` (default `true`)
 
-## Development
 
-1. Install dependencies:
-   - `npm install`
-2. Build:
-   - `npm run compile`
-3. Run extension in development:
-   - Press `F5` in VS Code to launch an Extension Development Host.
+
 
 ## Usage
 

@@ -2,8 +2,8 @@
   "name": "markdown-studio",
   "displayName": "markdown-studio",
   "description": "Preview Markdown files in a Markdown Studio webview experience.",
-  "version": "0.1.0",
-  "publisher": "local",
+  "version": "0.1.1",
+  "publisher": "saikethan",
   "icon": "media/extension-icon.png",
   "engines": {
     "vscode": "^1.85.0"

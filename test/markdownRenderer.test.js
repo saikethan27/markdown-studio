@@ -231,6 +231,36 @@ test("escapes unknown code block content to avoid raw HTML output", () => {
   assert.match(html, /&lt;script&gt;alert\(&#39;xss&#39;\)&lt;\/script&gt;/u);
 });
 
+test("generates slugified id attributes on headings", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("# Hello World"));
+
+  assert.match(html, /id="hello-world"/u);
+});
+
+test("handles duplicate headings with unique suffixed ids", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("## Foo\n\n## Foo\n\n## Foo"));
+
+  assert.match(html, /id="foo"/u);
+  assert.match(html, /id="foo-1"/u);
+  assert.match(html, /id="foo-2"/u);
+});
+
+test("strips inline formatting from heading slugs", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("## **Bold** text"));
+
+  assert.match(html, /id="bold-text"/u);
+});
+
+test("headings include data-heading-level attribute", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("### My Section"));
+
+  assert.match(html, /data-heading-level="3"/u);
+});
+
 test("respects task list, math, and footnote feature toggles", () => {
   const { renderMarkdown } = loadRendererModule();
   const markdown = "- [x] done\n\nInline math $a+b$\n\nRef[^1]\n\n[^1]: Note";
