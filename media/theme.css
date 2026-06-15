@@ -10,8 +10,9 @@
 :root {
   /* --- Layout / Width --- */
   --content-max-width: 980px;
-  --content-padding: 1.25rem;
-  --page-padding: 1.5rem;
+  /* Fluid padding: tightens on narrow panes, breathes on wide screens. */
+  --content-padding: clamp(0.75rem, 2.5vw, 1.5rem);
+  --page-padding: clamp(1rem, 3vw, 2rem);
 
   /* --- TOC sidebar --- */
   --toc-width: 260px;
@@ -126,6 +127,15 @@
   --hl-deletion: oklch(0.4500 0.1500 20.0000);    /* red */
   --hl-addition: oklch(0.4500 0.1300 155.0000);   /* green */
 
+  /* --- Settings panel (right sidebar) --- */
+  --settings-width: 320px;
+  --switch-width: 2.5rem;
+  --switch-height: 1.4rem;
+  --switch-thumb-size: 1.05rem;
+  --switch-off-bg: var(--muted);
+  --switch-on-bg: var(--primary);
+  --switch-thumb-bg: oklch(1 0 0);
+
   /* --- Header appearance-control buttons --- */
   --ctrl-btn-size: 1.75rem;
   --ctrl-btn-font-size: 0.75rem;
@@ -145,6 +155,31 @@
   --lightbox-control-radius: var(--radius);
   --lightbox-control-size: 2.25rem;
   --lightbox-control-font-size: 1.1rem;
+
+  /* --- Bold / emphasis colour (theme-scoped; GitHub overrides to foreground) --- */
+  --strong-color: var(--primary);
+
+  /* --- Images --- */
+  --img-border: color-mix(in oklch, var(--border) 70%, transparent);
+
+  /* --- Content card elevation (clean, no colored glow) --- */
+  --card-shadow: 0 1px 2px oklch(0 0 0 / 0.05), 0 4px 12px oklch(0 0 0 / 0.04);
+
+  /* --- Custom scrollbars --- */
+  --scrollbar-size: 10px;
+  --scrollbar-track: transparent;
+  --scrollbar-thumb: color-mix(in oklch, var(--foreground) 22%, transparent);
+  --scrollbar-thumb-hover: color-mix(in oklch, var(--foreground) 38%, transparent);
+
+  /* --- Mermaid viewport + floating controls --- */
+  --mermaid-min-height: clamp(180px, 38vh, 440px);
+  --mermaid-ctrl-bg: color-mix(in oklch, var(--popover) 86%, var(--foreground));
+  --mermaid-ctrl-border: var(--border);
+  --mermaid-ctrl-shadow: 0 2px 6px oklch(0 0 0 / 0.18);
+  --mermaid-ctrl-idle-opacity: 0.85;
+
+  /* --- Drawer scrim (narrow-width TOC / settings overlays) --- */
+  --drawer-backdrop: oklch(0 0 0 / 0.45);
 }
 
 /* ============================================================
@@ -270,6 +305,7 @@ body.theme-style-github.theme-light {
   --accent-foreground: #1f2328;
   --border: #d1d9e0;
   --ring: #0969da;
+  --strong-color: var(--foreground);
 
   --hl-bg: #f6f8fa;
   --hl-keyword: #cf222e;
@@ -321,6 +357,7 @@ body.theme-style-github.theme-dark {
   --accent-foreground: #e6edf3;
   --border: #30363d;
   --ring: #2f81f7;
+  --strong-color: var(--foreground);
 
   --hl-bg: #161b22;
   --hl-keyword: #ff7b72;

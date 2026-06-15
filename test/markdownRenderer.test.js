@@ -481,6 +481,27 @@ test("plantuml fence renders <img class='plantuml-diagram'> with server URL and 
   assert.doesNotMatch(html, /<pre[^>]*class="code-block"[^>]*>/u);
 });
 
+// ── Table wrapper ──────────────────────────────────────────────────────────────
+
+test("wraps tables in a scrollable .table-wrap container", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const markdown = "| A | B |\n| - | - |\n| 1 | 2 |";
+  const html = renderMarkdown(createContext(markdown));
+
+  // The table must be wrapped so wide tables scroll instead of clipping.
+  assert.match(html, /<div class="table-wrap"><table/u);
+  assert.match(html, /<\/table>\s*<\/div>/u);
+});
+
+test("table retains data-line for scroll sync", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // Line 0: table header row.
+  const markdown = "| A | B |\n| - | - |\n| 1 | 2 |";
+  const html = renderMarkdown(createContext(markdown));
+
+  assert.match(html, /<table[^>]*data-line="0"[^>]*>/u);
+});
+
 test("plantuml fence falls back to code-block when enablePlantuml is false", () => {
   const { renderMarkdown } = loadRendererModule();
   const html = renderMarkdown(

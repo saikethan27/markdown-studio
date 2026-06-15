@@ -454,6 +454,38 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
     return self.renderToken(tokens, index, options);
   };
 
+  // Wrap every table in <div class="table-wrap"> so wide tables scroll
+  // horizontally instead of clipping/overflowing the content column. The
+  // data-line attribute stays on the inner <table> (set by the source_line
+  // core rule), so scroll-sync still maps it.
+  const defaultTableOpenRule = markdown.renderer.rules.table_open;
+  markdown.renderer.rules.table_open = (
+    tokens: any[],
+    index: number,
+    options: any,
+    env: any,
+    self: any
+  ) => {
+    const rendered = defaultTableOpenRule
+      ? defaultTableOpenRule(tokens, index, options, env, self)
+      : self.renderToken(tokens, index, options);
+    return `<div class="table-wrap">${rendered}`;
+  };
+
+  const defaultTableCloseRule = markdown.renderer.rules.table_close;
+  markdown.renderer.rules.table_close = (
+    tokens: any[],
+    index: number,
+    options: any,
+    env: any,
+    self: any
+  ) => {
+    const rendered = defaultTableCloseRule
+      ? defaultTableCloseRule(tokens, index, options, env, self)
+      : self.renderToken(tokens, index, options);
+    return `${rendered}</div>`;
+  };
+
   return markdown;
 }
 

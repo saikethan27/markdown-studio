@@ -2,6 +2,16 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { renderMarkdown, type RendererSettings } from "../render/markdownRenderer";
+import { isDefaultMarkdownEditor, setDefaultMarkdownEditor } from "./defaultEditor";
+import { SETTINGS_PANEL_HTML, THEME_MODAL_HTML } from "./settingsPanel";
+import {
+  getActiveCustomThemeCss,
+  getActiveThemeStyle,
+  getThemeOptions,
+  getActiveThemeId,
+  saveCustomTheme,
+  setActiveTheme
+} from "./themes";
 
 const CUSTOM_EDITOR_VIEW_TYPE = "claudeMarkdownPreview.customEditor";
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
@@ -11,6 +21,7 @@ interface RenderPayload {
   html: string;
   theme: "light" | "dark";
   themeStyle: "claude" | "github";
+  customThemeCss: string;
   title: string;
   wordCount: number;
   readingTimeMin: number;
@@ -36,11 +47,35 @@ interface OpenEditorMessage {
   type: "openEditor";
 }
 
+interface RequestSettingsMessage {
+  type: "requestSettings";
+}
+
+interface SetDefaultEditorMessage {
+  type: "setDefaultEditor";
+  enabled: boolean;
+}
+
+interface SetThemeMessage {
+  type: "setTheme";
+  themeId: string;
+}
+
+interface SaveThemeMessage {
+  type: "saveTheme";
+  name: string;
+  css: string;
+}
+
 type IncomingWebviewMessage =
   | ReadyMessage
   | OpenLinkMessage
   | EditorRevealLineMessage
-  | OpenEditorMessage;
+  | OpenEditorMessage
+  | RequestSettingsMessage
+  | SetDefaultEditorMessage
+  | SetThemeMessage
+  | SaveThemeMessage;
 
 interface HrefParts {
   pathPart: string;
@@ -151,7 +186,32 @@ export class CustomEditorSession {
       this.scheduleRender();
     }, null, this.disposables);
 
+    // Keep the settings panel in sync if the relevant settings are changed
+    // elsewhere (another markdown-studio view, or VS Code's own UI).
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("workbench.editorAssociations")) {
+        this.postSettingsState();
+      }
+      if (
+        event.affectsConfiguration("claudeMarkdownPreview.theme") ||
+        event.affectsConfiguration("claudeMarkdownPreview.customThemes")
+      ) {
+        this.postSettingsState();
+        this.scheduleRender();
+      }
+    }, null, this.disposables);
+
     this.scheduleRender();
+  }
+
+  /** Post the current settings state (toggle + theme list) to the webview. */
+  private postSettingsState(): void {
+    void this.webviewPanel.webview.postMessage({
+      type: "settingsState",
+      isDefaultEditor: isDefaultMarkdownEditor(),
+      themes: getThemeOptions(),
+      activeTheme: getActiveThemeId()
+    });
   }
 
   private handleTextDocumentChange(document: vscode.TextDocument): void {
@@ -214,6 +274,7 @@ export class CustomEditorSession {
       html,
       theme,
       themeStyle,
+      customThemeCss: getActiveCustomThemeCss(),
       title,
       wordCount,
       readingTimeMin
@@ -240,8 +301,7 @@ export class CustomEditorSession {
   }
 
   private getThemeStyle(): "claude" | "github" {
-    const val = vscode.workspace.getConfiguration("claudeMarkdownPreview").get<string>("theme", "claude");
-    return val === "github" ? "github" : "claude";
+    return getActiveThemeStyle();
   }
 
   private async handleMessage(message: unknown): Promise<void> {
@@ -258,6 +318,38 @@ export class CustomEditorSession {
         void this.webviewPanel.webview.postMessage(pendingPayload);
       }
 
+      this.postSettingsState();
+      return;
+    }
+
+    if (message.type === "requestSettings") {
+      this.postSettingsState();
+      return;
+    }
+
+    if (message.type === "setDefaultEditor") {
+      await setDefaultMarkdownEditor(message.enabled);
+      this.postSettingsState();
+      void vscode.window.showInformationMessage(
+        message.enabled
+          ? "markdown-studio is now the default editor for Markdown files."
+          : "markdown-studio is no longer the default editor for Markdown files."
+      );
+      return;
+    }
+
+    if (message.type === "setTheme") {
+      await setActiveTheme(message.themeId);
+      this.scheduleRender();
+      this.postSettingsState();
+      return;
+    }
+
+    if (message.type === "saveTheme") {
+      await saveCustomTheme(message.name, message.css);
+      this.scheduleRender();
+      this.postSettingsState();
+      void vscode.window.showInformationMessage(`markdown-studio: saved theme "${message.name.trim()}".`);
       return;
     }
 
@@ -447,6 +539,8 @@ export class CustomEditorSession {
         <div class="ctrl-separator" role="separator"></div>
         <button class="ctrl-btn" id="collapseAllBtn" type="button" title="Collapse all sections" aria-label="Collapse all sections">&#8597; Collapse</button>
         <button class="ctrl-btn" id="editBtn" type="button" title="Edit source" aria-label="Edit source">&#9998; Edit</button>
+        <div class="ctrl-separator" role="separator"></div>
+        <button class="ctrl-btn" id="settingsBtn" type="button" title="Settings" aria-label="Settings" aria-expanded="false">&#9881;</button>
       </div>
     </header>
     <div class="claude-body">
@@ -454,8 +548,10 @@ export class CustomEditorSession {
       <main class="preview-main">
         <article class="preview-content claude-styled" id="content"></article>
       </main>
+      ${SETTINGS_PANEL_HTML}
     </div>
   </div>
+  ${THEME_MODAL_HTML}
   ${mermaidScriptTag}
   <script nonce="${nonce}" src="${previewScriptUri}"></script>
 </body>
@@ -473,7 +569,11 @@ function isIncomingMessage(value: unknown): value is IncomingWebviewMessage {
     candidate.type === "ready" ||
     candidate.type === "openLink" ||
     candidate.type === "editorRevealLine" ||
-    candidate.type === "openEditor"
+    candidate.type === "openEditor" ||
+    candidate.type === "requestSettings" ||
+    candidate.type === "setDefaultEditor" ||
+    candidate.type === "setTheme" ||
+    candidate.type === "saveTheme"
   );
 }
 

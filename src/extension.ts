@@ -31,6 +31,24 @@ function resolveActiveTarget(): { document: vscode.TextDocument; lastRenderedHtm
 export function activate(context: vscode.ExtensionContext): void {
   const customEditorProvider = CustomEditorProvider.register(context);
 
+  // Reopen the active Markdown file with the markdown-studio custom editor in the
+  // SAME editor column (replaces the text editor in place — no split).
+  const openInStudioCommand = vscode.commands.registerCommand("claudeMarkdownPreview.openInStudio", async () => {
+    const activeEditor = vscode.window.activeTextEditor;
+
+    if (!isMarkdownDocument(activeEditor?.document)) {
+      void vscode.window.showInformationMessage("markdown-studio: open a Markdown file first.");
+      return;
+    }
+
+    await vscode.commands.executeCommand(
+      "vscode.openWith",
+      activeEditor.document.uri,
+      CustomEditorProvider.viewType,
+      activeEditor.viewColumn
+    );
+  });
+
   const openPreviewCommand = vscode.commands.registerCommand("claudeMarkdownPreview.openPreview", () => {
     const activeEditor = vscode.window.activeTextEditor;
 
@@ -231,6 +249,7 @@ ${contentHtml}
 
   context.subscriptions.push(
     customEditorProvider,
+    openInStudioCommand,
     openPreviewCommand,
     exportHtmlCommand,
     exportPdfCommand,

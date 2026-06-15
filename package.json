@@ -41,8 +41,16 @@
     ],
     "commands": [
       {
+        "command": "claudeMarkdownPreview.openInStudio",
+        "title": "markdown-studio: Open with markdown-studio",
+        "icon": {
+          "light": "media/icons/open-studio-light.svg",
+          "dark": "media/icons/open-studio-dark.svg"
+        }
+      },
+      {
         "command": "claudeMarkdownPreview.openPreview",
-        "title": "markdown-studio: Open Preview",
+        "title": "markdown-studio: Open Preview to the Side",
         "icon": "$(open-preview)"
       },
       {
@@ -61,7 +69,7 @@
     "menus": {
       "editor/title": [
         {
-          "command": "claudeMarkdownPreview.openPreview",
+          "command": "claudeMarkdownPreview.openInStudio",
           "when": "editorLangId == markdown",
           "group": "navigation"
         }
@@ -125,9 +133,27 @@
         },
         "claudeMarkdownPreview.theme": {
           "type": "string",
-          "enum": ["claude", "github"],
           "default": "claude",
-          "description": "Visual theme style for the markdown preview. 'claude' uses the built-in warm token palette; 'github' approximates GitHub's Markdown styling."
+          "description": "Active preview theme. Built-in values are 'claude' (warm token palette) and 'github' (GitHub-flavored styling); it may also be the name of any theme defined in claudeMarkdownPreview.customThemes. Use the Settings panel inside the preview to switch or add themes."
+        },
+        "claudeMarkdownPreview.customThemes": {
+          "type": "array",
+          "default": [],
+          "description": "User-defined preview themes. Each theme is global CSS that overrides the preview's design tokens. Manage these from the Settings panel inside the preview (gear icon → Theme → Add new theme).",
+          "items": {
+            "type": "object",
+            "required": ["name", "css"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Display name and id of the theme (used as the value of claudeMarkdownPreview.theme when active)."
+              },
+              "css": {
+                "type": "string",
+                "description": "Global CSS applied last in the preview. Override design tokens under :root, body.theme-light, and body.theme-dark."
+              }
+            }
+          }
         },
         "claudeMarkdownPreview.customCssPath": {
           "type": "string",

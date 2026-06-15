@@ -13,6 +13,24 @@
     return;
   }
 
+  // ── Motion preference ───────────────────────────────────────────────────────
+  function prefersReducedMotion() {
+    return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+  function smoothBehavior() {
+    return prefersReducedMotion() ? "auto" : "smooth";
+  }
+
+  // ── Render / Mermaid caches (survive re-renders) ────────────────────────────
+  // Skip the whole rebuild when the rendered HTML is byte-identical.
+  let lastRenderedHtml = null;
+  // diagram cache-key → rendered <svg> innerHTML, so unchanged diagrams are not
+  // re-run by Mermaid (eliminates flicker + cost while typing).
+  const mermaidCache = new Map();
+  // diagram cache-key → { scale, tx, ty } so pan/zoom survives a re-render.
+  const mermaidViewState = new Map();
+  let lastMermaidTheme = null;
+
   // ── Persisted state ───────────────────────────────────────────────────────
   // Single source for all persisted UI state; we merge into it on each change.
   const state = vscode.getState() || {};
@@ -237,7 +255,7 @@
 
       a.addEventListener("click", (event) => {
         event.preventDefault();
-        heading.scrollIntoView({ behavior: "smooth", block: "start" });
+        heading.scrollIntoView({ behavior: smoothBehavior(), block: "start" });
         setActiveEntry(a);
       });
 
@@ -268,13 +286,54 @@
   }
 
   // ── Mermaid ───────────────────────────────────────────────────────────────
+  // Render only diagrams whose source (+theme) isn't already cached. Cached
+  // diagrams get their previously-rendered SVG injected directly — no re-run,
+  // no flicker. Each node is tagged with data-cache-key for pan/zoom restore.
   async function renderMermaid(theme) {
     if (typeof window.mermaid === "undefined") {
       return;
     }
 
-    const nodes = contentElement.querySelectorAll(".mermaid");
+    const nodes = Array.from(contentElement.querySelectorAll(".mermaid"));
     if (!nodes.length) {
+      return;
+    }
+
+    const themeKey = theme === "dark" ? "dark" : "neutral";
+    const toRender = [];
+    const liveKeys = new Set();
+
+    for (const node of nodes) {
+      const src = node.getAttribute("data-mermaid-src") || node.textContent || "";
+      const cacheKey = themeKey + " " + src;
+      node.setAttribute("data-mermaid-src", src);
+      node.setAttribute("data-cache-key", cacheKey);
+      liveKeys.add(cacheKey);
+
+      const cached = mermaidCache.get(cacheKey);
+      if (cached) {
+        node.innerHTML = cached;
+        node.setAttribute("data-processed", "true");
+      } else {
+        toRender.push(node);
+      }
+    }
+
+    // Prune caches down to diagrams present in the current document. Without
+    // this, editing a diagram (a new source per keystroke) would grow the
+    // caches without bound.
+    for (const key of Array.from(mermaidCache.keys())) {
+      if (!liveKeys.has(key)) {
+        mermaidCache.delete(key);
+      }
+    }
+    for (const key of Array.from(mermaidViewState.keys())) {
+      if (!liveKeys.has(key)) {
+        mermaidViewState.delete(key);
+      }
+    }
+
+    if (!toRender.length) {
       return;
     }
 
@@ -282,32 +341,24 @@
       window.mermaid.initialize({
         startOnLoad: false,
         securityLevel: "strict",
-        theme: theme === "dark" ? "dark" : "neutral"
+        theme: themeKey
       });
 
-      await window.mermaid.run({ nodes });
+      await window.mermaid.run({ nodes: toRender });
+
+      for (const node of toRender) {
+        const key = node.getAttribute("data-cache-key");
+        if (key) {
+          mermaidCache.set(key, node.innerHTML);
+        }
+      }
     } catch (error) {
       console.error("[markdown-studio] Mermaid rendering failed:", error);
     }
   }
 
   // ── Inline Mermaid pan/zoom ─────────────────────────────────────────────────
-  // Global drag state shared across all mermaid viewports.
-  let activeDrag = null;
-
-  document.addEventListener("mousemove", (e) => {
-    if (!activeDrag) return;
-    activeDrag.state.tx = activeDrag.startTx + (e.clientX - activeDrag.startX);
-    activeDrag.state.ty = activeDrag.startTy + (e.clientY - activeDrag.startY);
-    activeDrag.apply();
-  });
-
-  document.addEventListener("mouseup", () => {
-    if (!activeDrag) return;
-    activeDrag.viewport.style.cursor = "grab";
-    activeDrag = null;
-  });
-
+  // Pointer Events unify mouse, trackpad, pen and touch; two pointers = pinch.
   function setupMermaidPanZoom() {
     contentElement.querySelectorAll(".mermaid").forEach((canvas) => {
       if (canvas.parentElement && canvas.parentElement.classList.contains("mermaid-viewport")) {
@@ -316,6 +367,7 @@
 
       const viewport = document.createElement("div");
       viewport.className = "mermaid-viewport";
+      viewport.title = "Ctrl/⌘ + scroll to zoom · drag to pan";
       canvas.parentNode.insertBefore(viewport, canvas);
       viewport.appendChild(canvas);
 
@@ -323,47 +375,141 @@
       canvas.style.display = "inline-block";
       canvas.style.userSelect = "none";
 
-      const state = { scale: 1, tx: 0, ty: 0 };
+      const cacheKey = canvas.getAttribute("data-cache-key") || "";
+      const saved = mermaidViewState.get(cacheKey);
+      const state = saved
+        ? { scale: saved.scale, tx: saved.tx, ty: saved.ty }
+        : { scale: 1, tx: 0, ty: 0 };
 
       function applyTransform() {
-        canvas.style.transform = "translate(" + state.tx + "px, " + state.ty + "px) scale(" + state.scale + ")";
+        canvas.style.transform =
+          "translate(" + state.tx + "px, " + state.ty + "px) scale(" + state.scale + ")";
+        if (cacheKey) {
+          mermaidViewState.set(cacheKey, { scale: state.scale, tx: state.tx, ty: state.ty });
+        }
       }
 
-      viewport.addEventListener("wheel", (e) => {
-        e.preventDefault();
-        const rect = viewport.getBoundingClientRect();
-        const mx = e.clientX - rect.left;
-        const my = e.clientY - rect.top;
-        const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      function zoomAround(px, py, factor) {
         const newScale = Math.max(0.1, Math.min(20, state.scale * factor));
-        state.tx = mx - (mx - state.tx) * (newScale / state.scale);
-        state.ty = my - (my - state.ty) * (newScale / state.scale);
+        state.tx = px - (px - state.tx) * (newScale / state.scale);
+        state.ty = py - (py - state.ty) * (newScale / state.scale);
         state.scale = newScale;
         applyTransform();
+      }
+
+      // Fit the diagram to the viewport width and center it (premium first view).
+      function fitAndCenter() {
+        state.scale = 1;
+        state.tx = 0;
+        state.ty = 0;
+        applyTransform();
+        requestAnimationFrame(() => {
+          const svg = canvas.querySelector("svg");
+          const target = svg || canvas;
+          const cw = target.getBoundingClientRect().width;
+          const ch = target.getBoundingClientRect().height;
+          const vw = viewport.clientWidth;
+          const vh = viewport.clientHeight;
+          const pad = 16;
+          let scale = 1;
+          if (cw > vw - pad * 2) {
+            scale = Math.max(0.1, (vw - pad * 2) / cw);
+          }
+          state.scale = scale;
+          state.tx = Math.max(pad, (vw - cw * scale) / 2);
+          state.ty = Math.max(pad, (vh - ch * scale) / 2);
+          applyTransform();
+        });
+      }
+
+      // Wheel: only zoom with a modifier so a plain wheel scrolls the page.
+      viewport.addEventListener("wheel", (e) => {
+        if (!(e.ctrlKey || e.metaKey)) {
+          return;
+        }
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const factor = e.deltaY < 0 ? 1.1 : 0.9;
+        zoomAround(e.clientX - rect.left, e.clientY - rect.top, factor);
       }, { passive: false });
 
-      viewport.addEventListener("mousedown", (e) => {
-        if (e.button !== 0) return;
-        if (e.target.closest(".mermaid-controls")) return;
+      // Pointer-based pan + pinch.
+      const pointers = new Map();
+      let panStart = null;
+      let pinchStartDist = 0;
+      let pinchStartScale = 1;
+      let pinchCenter = null;
+
+      viewport.addEventListener("pointerdown", (e) => {
+        if (e.target.closest(".mermaid-controls")) {
+          return;
+        }
         e.preventDefault();
-        viewport.style.cursor = "grabbing";
-        activeDrag = {
-          viewport,
-          state,
-          startX: e.clientX,
-          startY: e.clientY,
-          startTx: state.tx,
-          startTy: state.ty,
-          apply: applyTransform
-        };
+        viewport.setPointerCapture(e.pointerId);
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pointers.size === 1) {
+          panStart = { x: e.clientX, y: e.clientY, tx: state.tx, ty: state.ty };
+          viewport.style.cursor = "grabbing";
+        } else if (pointers.size === 2) {
+          const pts = Array.from(pointers.values());
+          const rect = viewport.getBoundingClientRect();
+          pinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+          pinchStartScale = state.scale;
+          pinchCenter = {
+            x: (pts[0].x + pts[1].x) / 2 - rect.left,
+            y: (pts[0].y + pts[1].y) / 2 - rect.top,
+            tx: state.tx,
+            ty: state.ty
+          };
+          panStart = null;
+        }
       });
+
+      viewport.addEventListener("pointermove", (e) => {
+        if (!pointers.has(e.pointerId)) {
+          return;
+        }
+        pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+        if (pointers.size === 1 && panStart) {
+          state.tx = panStart.tx + (e.clientX - panStart.x);
+          state.ty = panStart.ty + (e.clientY - panStart.y);
+          applyTransform();
+        } else if (pointers.size === 2 && pinchCenter) {
+          const pts = Array.from(pointers.values());
+          const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          const newScale = Math.max(0.1, Math.min(20, pinchStartScale * (dist / pinchStartDist)));
+          state.tx = pinchCenter.x - (pinchCenter.x - pinchCenter.tx) * (newScale / pinchStartScale);
+          state.ty = pinchCenter.y - (pinchCenter.y - pinchCenter.ty) * (newScale / pinchStartScale);
+          state.scale = newScale;
+          applyTransform();
+        }
+      });
+
+      function endPointer(e) {
+        pointers.delete(e.pointerId);
+        if (pointers.size < 2) {
+          pinchCenter = null;
+        }
+        if (pointers.size === 1) {
+          const p = Array.from(pointers.values())[0];
+          panStart = { x: p.x, y: p.y, tx: state.tx, ty: state.ty };
+        } else if (pointers.size === 0) {
+          panStart = null;
+          viewport.style.cursor = "grab";
+        }
+      }
+
+      viewport.addEventListener("pointerup", endPointer);
+      viewport.addEventListener("pointercancel", endPointer);
 
       const controls = document.createElement("div");
       controls.className = "mermaid-controls";
       controls.innerHTML =
-        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-in\" title=\"Zoom In\">+</button>" +
-        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-out\" title=\"Zoom Out\">−</button>" +
-        "<button class=\"mermaid-ctrl-btn\" data-action=\"reset\" title=\"Reset View\">↺ Reset</button>";
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-in\" title=\"Zoom in\" aria-label=\"Zoom in\">+</button>" +
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-out\" title=\"Zoom out\" aria-label=\"Zoom out\">−</button>" +
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"reset\" title=\"Fit to view\" aria-label=\"Fit to view\">↺ Fit</button>";
       viewport.appendChild(controls);
 
       controls.addEventListener("click", (e) => {
@@ -374,23 +520,20 @@
         const cy = viewport.clientHeight / 2;
 
         if (action === "zoom-in") {
-          const newScale = Math.min(20, state.scale * 1.3);
-          state.tx = cx - (cx - state.tx) * (newScale / state.scale);
-          state.ty = cy - (cy - state.ty) * (newScale / state.scale);
-          state.scale = newScale;
+          zoomAround(cx, cy, 1.3);
         } else if (action === "zoom-out") {
-          const newScale = Math.max(0.1, state.scale / 1.3);
-          state.tx = cx - (cx - state.tx) * (newScale / state.scale);
-          state.ty = cy - (cy - state.ty) * (newScale / state.scale);
-          state.scale = newScale;
+          zoomAround(cx, cy, 1 / 1.3);
         } else if (action === "reset") {
-          state.scale = 1;
-          state.tx = 0;
-          state.ty = 0;
+          fitAndCenter();
         }
-
-        applyTransform();
       });
+
+      // Initial view: restore saved pan/zoom, else fit-to-view once rendered.
+      if (saved) {
+        applyTransform();
+      } else {
+        fitAndCenter();
+      }
     });
   }
 
@@ -404,14 +547,16 @@
       const toggles = contentElement.querySelectorAll(".collapse-toggle");
       if (sections.length === 0) return;
 
-      const anyExpanded = Array.from(sections).some((s) => s.style.display !== "none");
+      const anyExpanded = Array.from(sections).some(
+        (s) => !s.classList.contains("collapsible-section--collapsed")
+      );
 
       sections.forEach((section) => {
-        section.style.display = anyExpanded ? "none" : "";
+        section.classList.toggle("collapsible-section--collapsed", anyExpanded);
       });
       toggles.forEach((toggle) => {
         toggle.setAttribute("aria-expanded", String(!anyExpanded));
-        toggle.textContent = anyExpanded ? "▶" : "▼";
+        toggle.classList.toggle("collapse-toggle--collapsed", anyExpanded);
       });
 
       collapseAllBtn.textContent = anyExpanded ? "↕ Expand" : "↕ Collapse";
@@ -422,6 +567,192 @@
   if (editBtn) {
     editBtn.addEventListener("click", () => {
       vscode.postMessage({ type: "openEditor" });
+    });
+  }
+
+  // ── Settings panel (right sidebar) ──────────────────────────────────────────
+  const settingsBtn = document.getElementById("settingsBtn");
+  const settingsSidebar = document.getElementById("settingsSidebar");
+  const settingsClose = document.getElementById("settingsClose");
+  const defaultEditorToggle = document.getElementById("defaultEditorToggle");
+
+  function isSettingsOpen() {
+    return !!settingsSidebar && settingsSidebar.getAttribute("aria-hidden") === "false";
+  }
+
+  function openSettings() {
+    if (!settingsSidebar) {
+      return;
+    }
+    settingsSidebar.setAttribute("aria-hidden", "false");
+    if (settingsBtn) {
+      settingsBtn.setAttribute("aria-expanded", "true");
+      settingsBtn.classList.add("ctrl-btn--active");
+    }
+    // Re-sync the toggle with the current VS Code setting each time it opens.
+    vscode.postMessage({ type: "requestSettings" });
+  }
+
+  function closeSettings() {
+    if (!settingsSidebar) {
+      return;
+    }
+    settingsSidebar.setAttribute("aria-hidden", "true");
+    if (settingsBtn) {
+      settingsBtn.setAttribute("aria-expanded", "false");
+      settingsBtn.classList.remove("ctrl-btn--active");
+    }
+  }
+
+  function toggleSettings() {
+    if (isSettingsOpen()) {
+      closeSettings();
+    } else {
+      openSettings();
+    }
+  }
+
+  // Reflect the default-editor state (driven by the extension's settingsState message).
+  function applyDefaultEditorState(isDefault) {
+    if (!defaultEditorToggle) {
+      return;
+    }
+    defaultEditorToggle.setAttribute("aria-checked", isDefault ? "true" : "false");
+    defaultEditorToggle.classList.toggle("setting-switch--on", !!isDefault);
+  }
+
+  if (settingsBtn) {
+    settingsBtn.addEventListener("click", toggleSettings);
+  }
+  if (settingsClose) {
+    settingsClose.addEventListener("click", closeSettings);
+  }
+  if (defaultEditorToggle) {
+    defaultEditorToggle.addEventListener("click", () => {
+      const currentlyOn = defaultEditorToggle.getAttribute("aria-checked") === "true";
+      // Ask the extension to flip the setting; it confirms back via settingsState.
+      vscode.postMessage({ type: "setDefaultEditor", enabled: !currentlyOn });
+    });
+  }
+
+  // ── Theme selection + custom themes ─────────────────────────────────────────
+  const ADD_THEME_VALUE = "__add_new_theme__";
+  const themeSelect = document.getElementById("themeSelect");
+  const themeModalOverlay = document.getElementById("themeModalOverlay");
+  const themeModalClose = document.getElementById("themeModalClose");
+  const themeNameInput = document.getElementById("themeNameInput");
+  const themeCssInput = document.getElementById("themeCssInput");
+  const themeSaveBtn = document.getElementById("themeSaveBtn");
+  const themeCancelBtn = document.getElementById("themeCancelBtn");
+
+  // Last theme the user actually had selected; used to restore the <select> after
+  // the transient "+ Add new theme…" action item is chosen.
+  let lastActiveTheme = "claude";
+
+  // Single injected <style> element holding the active custom theme's CSS.
+  let customThemeStyleEl = null;
+
+  function applyCustomThemeCss(css) {
+    if (!customThemeStyleEl) {
+      customThemeStyleEl = document.createElement("style");
+      customThemeStyleEl.id = "customThemeStyle";
+      // Appended after the linked stylesheets so equal-specificity token
+      // overrides win on source order.
+      document.head.appendChild(customThemeStyleEl);
+    }
+    customThemeStyleEl.textContent = css || "";
+  }
+
+  // ── "Add new theme" modal ─────────────────────────────────────────────────
+  function isThemeModalOpen() {
+    return !!themeModalOverlay && themeModalOverlay.getAttribute("aria-hidden") === "false";
+  }
+
+  function openThemeModal() {
+    if (!themeModalOverlay) {
+      return;
+    }
+    if (themeNameInput) {
+      themeNameInput.value = "";
+    }
+    if (themeCssInput) {
+      themeCssInput.value = "";
+    }
+    themeModalOverlay.setAttribute("aria-hidden", "false");
+    if (themeNameInput) {
+      themeNameInput.focus();
+    }
+  }
+
+  function closeThemeModal() {
+    if (!themeModalOverlay) {
+      return;
+    }
+    themeModalOverlay.setAttribute("aria-hidden", "true");
+  }
+
+  function populateThemes(themes, activeTheme) {
+    if (!themeSelect) {
+      return;
+    }
+    lastActiveTheme = activeTheme || "claude";
+    themeSelect.innerHTML = "";
+
+    (themes || []).forEach((theme) => {
+      const option = document.createElement("option");
+      option.value = theme.id;
+      option.textContent = theme.builtin ? theme.label + " (built-in)" : theme.label;
+      themeSelect.appendChild(option);
+    });
+
+    const addOption = document.createElement("option");
+    addOption.value = ADD_THEME_VALUE;
+    addOption.textContent = "+ Add new theme…";
+    themeSelect.appendChild(addOption);
+
+    themeSelect.value = lastActiveTheme;
+  }
+
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      const value = themeSelect.value;
+      if (value === ADD_THEME_VALUE) {
+        // Keep the dropdown on the real active theme; open the pop-up instead.
+        themeSelect.value = lastActiveTheme;
+        openThemeModal();
+        return;
+      }
+      vscode.postMessage({ type: "setTheme", themeId: value });
+    });
+  }
+
+  if (themeSaveBtn) {
+    themeSaveBtn.addEventListener("click", () => {
+      const name = (themeNameInput && themeNameInput.value ? themeNameInput.value : "").trim();
+      const css = themeCssInput && themeCssInput.value ? themeCssInput.value : "";
+      if (!name) {
+        if (themeNameInput) {
+          themeNameInput.focus();
+        }
+        return;
+      }
+      vscode.postMessage({ type: "saveTheme", name, css });
+      closeThemeModal();
+    });
+  }
+
+  if (themeCancelBtn) {
+    themeCancelBtn.addEventListener("click", closeThemeModal);
+  }
+  if (themeModalClose) {
+    themeModalClose.addEventListener("click", closeThemeModal);
+  }
+  if (themeModalOverlay) {
+    // Click on the backdrop (outside the dialog) closes the modal.
+    themeModalOverlay.addEventListener("click", (event) => {
+      if (event.target === themeModalOverlay) {
+        closeThemeModal();
+      }
     });
   }
 
@@ -451,8 +782,13 @@
 
       const sectionDiv = document.createElement("div");
       sectionDiv.className = "collapsible-section";
+      // Inner wrapper carries overflow:hidden so the grid-rows 1fr→0fr
+      // transition can smoothly clip the content while collapsing.
+      const inner = document.createElement("div");
+      inner.className = "collapsible-section__inner";
+      sectionChildren.forEach((child) => inner.appendChild(child));
+      sectionDiv.appendChild(inner);
       heading.after(sectionDiv);
-      sectionChildren.forEach((child) => sectionDiv.appendChild(child));
 
       const toggle = document.createElement("span");
       toggle.className = "collapse-toggle";
@@ -466,8 +802,8 @@
         e.stopPropagation();
         const expanded = toggle.getAttribute("aria-expanded") === "true";
         toggle.setAttribute("aria-expanded", String(!expanded));
-        toggle.textContent = expanded ? "▶" : "▼";
-        sectionDiv.style.display = expanded ? "none" : "";
+        toggle.classList.toggle("collapse-toggle--collapsed", expanded);
+        sectionDiv.classList.toggle("collapsible-section--collapsed", expanded);
       };
 
       toggle.addEventListener("click", onToggle);
@@ -513,9 +849,11 @@
       const text = codeEl.textContent || "";
 
       function showCopied() {
-        copyBtn.textContent = "Copied!";
+        copyBtn.textContent = "✓ Copied";
+        copyBtn.classList.add("code-copy-btn--copied");
         setTimeout(() => {
           copyBtn.textContent = "Copy";
+          copyBtn.classList.remove("code-copy-btn--copied");
         }, 1500);
       }
 
@@ -548,7 +886,7 @@
         event.preventDefault();
         const targetEl = document.getElementById(href.slice(1));
         if (targetEl) {
-          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+          targetEl.scrollIntoView({ behavior: smoothBehavior(), block: "start" });
         }
       }
       return;
@@ -639,7 +977,42 @@
 
     // Fall back to the first element if none matched.
     const target = best || elements[0];
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    target.scrollIntoView({ behavior: smoothBehavior(), block: "start" });
+  }
+
+  // ── Scroll-position preservation across re-render ──────────────────────────
+  // Capture the topmost visible source block + its on-screen offset, so after a
+  // full innerHTML rebuild we can keep the user anchored instead of jumping up.
+  function captureScrollAnchor() {
+    const elements = contentElement.querySelectorAll("[data-line]");
+    for (const el of elements) {
+      const rect = el.getBoundingClientRect();
+      if (rect.bottom > 0) {
+        return { line: el.getAttribute("data-line"), offset: rect.top };
+      }
+    }
+    return null;
+  }
+
+  function restoreScrollAnchor(anchor) {
+    if (!anchor || anchor.line == null) {
+      return;
+    }
+    let el = null;
+    try {
+      el = contentElement.querySelector('[data-line="' + CSS.escape(anchor.line) + '"]');
+    } catch (_) {
+      el = null;
+    }
+    if (!el) {
+      return;
+    }
+    const delta = el.getBoundingClientRect().top - anchor.offset;
+    if (Math.abs(delta) > 1) {
+      // Don't echo this programmatic scroll back to the editor.
+      suppressScrollUntil = Date.now() + 250;
+      window.scrollBy(0, delta);
+    }
   }
 
   // ── Preview → editor scroll sync ─────────────────────────────────────────
@@ -819,7 +1192,7 @@
     if (findActiveIdx >= 0 && findActiveIdx < findHits.length) {
       const activeEl = findHits[findActiveIdx];
       activeEl.classList.add("find-hit--active");
-      activeEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      activeEl.scrollIntoView({ behavior: smoothBehavior(), block: "nearest" });
     }
     updateFindCount();
   }
@@ -899,6 +1272,21 @@
       }
     }
 
+    // Esc closes the "Add new theme" pop-up first (it sits above everything else).
+    if (event.key === "Escape" && isThemeModalOpen()) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeThemeModal();
+      return;
+    }
+
+    // Esc closes the settings panel when it's open and the find bar isn't.
+    if (event.key === "Escape" && isSettingsOpen() && !findBar.classList.contains("find-bar--visible")) {
+      event.preventDefault();
+      closeSettings();
+      return;
+    }
+
     // Only handle the following keys when the find bar is open.
     if (!findBar.classList.contains("find-bar--visible")) {
       return;
@@ -966,17 +1354,18 @@
       return;
     }
 
+    if (message.type === "settingsState") {
+      applyDefaultEditorState(message.isDefaultEditor === true);
+      populateThemes(message.themes, message.activeTheme);
+      return;
+    }
+
     if (message.type !== "render") {
       return;
     }
 
-    // Reset any in-progress mermaid pan/zoom drag from a previous render.
-    activeDrag = null;
-
-    // CRITICAL: clear find highlights BEFORE replacing innerHTML to avoid
-    // corrupted DOM state (unwrap cannot find orphaned marks after innerHTML replacement).
-    clearFindHighlights();
-
+    // Chrome that can change independently of content (title, meta, theme,
+    // zoom, width) is always applied.
     titleElement.textContent = message.title || "markdown-studio";
 
     if (metaElement) {
@@ -989,19 +1378,46 @@
     }
 
     applyTheme(message.theme, message.themeStyle);
+    applyCustomThemeCss(message.customThemeCss);
     // Re-apply zoom and width after each render (body class changes don't affect
     // inline custom properties we set on :root, but call to keep display in sync).
     applyZoom();
     applyWidth();
 
+    const htmlChanged = (message.html || "") !== lastRenderedHtml;
+    const themeChanged = message.theme !== lastMermaidTheme;
+
+    if (!htmlChanged) {
+      // Content is byte-identical — skip the expensive DOM rebuild entirely.
+      // Only re-render diagrams if the theme changed (Mermaid colours depend on it).
+      if (themeChanged) {
+        await renderMermaid(message.theme);
+        setupMermaidPanZoom();
+        lastMermaidTheme = message.theme;
+      }
+      return;
+    }
+
+    // CRITICAL: clear find highlights BEFORE replacing innerHTML to avoid
+    // corrupted DOM state (unwrap cannot find orphaned marks after innerHTML replacement).
+    clearFindHighlights();
+
+    // Remember where the user was looking so we can restore it after the rebuild.
+    const anchor = captureScrollAnchor();
+
     contentElement.innerHTML = message.html || "";
+    lastRenderedHtml = message.html || "";
 
     // Build TOC BEFORE collapsible headings so TOC labels are not polluted by
     // the prepended collapse toggle glyph.
     buildToc();
     setupCollapsibleHeadings();
     await renderMermaid(message.theme);
+    lastMermaidTheme = message.theme;
     setupMermaidPanZoom();
+
+    // Keep the previously-visible block anchored instead of jumping to the top.
+    restoreScrollAnchor(anchor);
 
     // Re-run find if the bar is open.
     if (findBar.classList.contains("find-bar--visible") && findInput.value.trim()) {
@@ -1034,17 +1450,20 @@
 
   lightboxOverlay.appendChild(lightboxStage);
   lightboxOverlay.appendChild(lightboxControls);
+  // We drive pan + pinch via Pointer Events, so suppress native touch gestures.
+  lightboxOverlay.style.touchAction = "none";
   document.body.appendChild(lightboxOverlay);
 
   // Lightbox state
   let lbScale = 1;
   let lbTranslateX = 0;
   let lbTranslateY = 0;
-  let lbIsDragging = false;
-  let lbDragStartX = 0;
-  let lbDragStartY = 0;
-  let lbDragOriginX = 0;
-  let lbDragOriginY = 0;
+  // Pointer-based pan + pinch state (mouse, pen, touch).
+  const lbPointers = new Map();
+  let lbPanStart = null;
+  let lbPinchStartDist = 0;
+  let lbPinchStartScale = 1;
+  let lbPinchPivot = null;
 
   function lbApplyTransform() {
     // Apply transform to the stage's single child (the cloned img/svg).
@@ -1060,7 +1479,6 @@
     lbScale = 1;
     lbTranslateX = 0;
     lbTranslateY = 0;
-    lbIsDragging = false;
 
     // Clear previous content
     lightboxStage.innerHTML = "";
@@ -1111,7 +1529,9 @@
   function lbClose() {
     lightboxOverlay.classList.remove("lightbox-overlay--open");
     lightboxStage.innerHTML = "";
-    lbIsDragging = false;
+    lbPointers.clear();
+    lbPanStart = null;
+    lbPinchPivot = null;
   }
 
   function lbZoomBy(factor, pivotX, pivotY) {
@@ -1169,36 +1589,69 @@
     lbZoomBy(factor, event.clientX, event.clientY);
   }, { passive: false });
 
-  // Drag to pan
-  lightboxOverlay.addEventListener("mousedown", (event) => {
-    // Only drag on the stage/content, not on control buttons
+  // Pan (1 pointer) + pinch-zoom (2 pointers), unified across mouse/pen/touch.
+  lightboxOverlay.addEventListener("pointerdown", (event) => {
     if (event.target.closest(".lightbox-controls")) {
       return;
     }
     event.preventDefault();
-    lbIsDragging = true;
-    lbDragStartX = event.clientX;
-    lbDragStartY = event.clientY;
-    lbDragOriginX = lbTranslateX;
-    lbDragOriginY = lbTranslateY;
-    lightboxOverlay.style.cursor = "grabbing";
+    lightboxOverlay.setPointerCapture(event.pointerId);
+    lbPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (lbPointers.size === 1) {
+      lbPanStart = { x: event.clientX, y: event.clientY, tx: lbTranslateX, ty: lbTranslateY };
+      lightboxOverlay.style.cursor = "grabbing";
+    } else if (lbPointers.size === 2) {
+      const pts = Array.from(lbPointers.values());
+      lbPinchStartDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) || 1;
+      lbPinchStartScale = lbScale;
+      lbPinchPivot = {
+        x: (pts[0].x + pts[1].x) / 2,
+        y: (pts[0].y + pts[1].y) / 2,
+        tx: lbTranslateX,
+        ty: lbTranslateY
+      };
+      lbPanStart = null;
+    }
   });
 
-  window.addEventListener("mousemove", (event) => {
-    if (!lbIsDragging) {
+  lightboxOverlay.addEventListener("pointermove", (event) => {
+    if (!lbPointers.has(event.pointerId)) {
       return;
     }
-    lbTranslateX = lbDragOriginX + (event.clientX - lbDragStartX);
-    lbTranslateY = lbDragOriginY + (event.clientY - lbDragStartY);
-    lbApplyTransform();
-  });
+    lbPointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
-  window.addEventListener("mouseup", () => {
-    if (lbIsDragging) {
-      lbIsDragging = false;
-      lightboxOverlay.style.cursor = "";
+    if (lbPointers.size === 1 && lbPanStart) {
+      lbTranslateX = lbPanStart.tx + (event.clientX - lbPanStart.x);
+      lbTranslateY = lbPanStart.ty + (event.clientY - lbPanStart.y);
+      lbApplyTransform();
+    } else if (lbPointers.size === 2 && lbPinchPivot) {
+      const pts = Array.from(lbPointers.values());
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const newScale = Math.min(20, Math.max(0.1, lbPinchStartScale * (dist / lbPinchStartDist)));
+      lbTranslateX = lbPinchPivot.x - (lbPinchPivot.x - lbPinchPivot.tx) * (newScale / lbPinchStartScale);
+      lbTranslateY = lbPinchPivot.y - (lbPinchPivot.y - lbPinchPivot.ty) * (newScale / lbPinchStartScale);
+      lbScale = newScale;
+      lbApplyTransform();
     }
   });
+
+  function lbEndPointer(event) {
+    lbPointers.delete(event.pointerId);
+    if (lbPointers.size < 2) {
+      lbPinchPivot = null;
+    }
+    if (lbPointers.size === 1) {
+      const p = Array.from(lbPointers.values())[0];
+      lbPanStart = { x: p.x, y: p.y, tx: lbTranslateX, ty: lbTranslateY };
+    } else if (lbPointers.size === 0) {
+      lbPanStart = null;
+      lightboxOverlay.style.cursor = "";
+    }
+  }
+
+  lightboxOverlay.addEventListener("pointerup", lbEndPointer);
+  lightboxOverlay.addEventListener("pointercancel", lbEndPointer);
 
   // Esc key closes the lightbox (added to the existing keydown listener via a separate handler)
   window.addEventListener("keydown", (event) => {

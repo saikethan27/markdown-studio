@@ -11,6 +11,8 @@
   font-family: var(--font-sans);
   color: var(--foreground);
   line-height: var(--leading-body);
+  /* Prevent long words / URLs from overflowing the content column. */
+  overflow-wrap: break-word;
 }
 
 .claude-styled h1,
@@ -31,7 +33,6 @@
   margin-top: var(--space-section);
   margin-bottom: var(--space-paragraph);
   letter-spacing: var(--letter-spacing-heading);
-  text-shadow: 0 0 1px color-mix(in oklch, var(--primary) 40%, transparent);
 }
 
 .claude-styled h1,
@@ -89,7 +90,7 @@
 .claude-styled b,
 .claude-ui-styled strong,
 .claude-ui-styled b {
-  color: var(--primary);
+  color: var(--strong-color);
   font-weight: var(--weight-semibold);
 }
 
@@ -102,6 +103,7 @@
   font-size: var(--text-code);
   padding: 0.125rem 0.375rem;
   color: var(--foreground);
+  overflow-wrap: anywhere;
 }
 
 .claude-styled pre,
@@ -119,6 +121,21 @@
 .claude-ui-styled pre.code-block {
   position: relative;
   padding-top: calc(var(--toolbar-height) + var(--space-block));
+}
+
+/* Default (no line numbers): the toolbar is absolutely positioned inside the
+   <pre>, so the <pre> itself must NOT scroll — otherwise the toolbar (and Copy
+   button) scrolls away with the code on horizontal overflow. Confine the
+   horizontal scroll to the <code> element so the toolbar stays pinned. */
+.claude-styled pre.code-block:not(.code-block--ln),
+.claude-ui-styled pre.code-block:not(.code-block--ln) {
+  overflow: hidden;
+}
+
+.claude-styled pre.code-block:not(.code-block--ln) > code,
+.claude-ui-styled pre.code-block:not(.code-block--ln) > code {
+  display: block;
+  overflow-x: auto;
 }
 
 .claude-styled .code-block-toolbar,
@@ -182,8 +199,8 @@
   border-color: var(--border);
 }
 
-.claude-styled .code-copy-btn:focus,
-.claude-ui-styled .code-copy-btn:focus {
+.claude-styled .code-copy-btn:focus-visible,
+.claude-ui-styled .code-copy-btn:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }
@@ -191,6 +208,11 @@
 .claude-styled .code-copy-btn:active,
 .claude-ui-styled .code-copy-btn:active {
   color: var(--primary);
+}
+
+.claude-styled .code-copy-btn--copied,
+.claude-ui-styled .code-copy-btn--copied {
+  color: var(--hl-string);
 }
 
 /* --- Code block: line numbers --- */
@@ -312,14 +334,28 @@
   margin-top: 0.5rem;
 }
 
+/* Tables are wrapped in <div class="table-wrap"> by the renderer so wide tables
+   scroll horizontally instead of clipping or overflowing the content column. */
+.claude-styled .table-wrap,
+.claude-ui-styled .table-wrap {
+  margin: var(--space-block) 0;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.claude-styled .table-wrap > table,
+.claude-ui-styled .table-wrap > table {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+}
+
 .claude-styled table,
 .claude-ui-styled table {
   border-collapse: collapse;
   width: 100%;
-  margin: var(--space-block) 0;
-  border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
 }
 
 .claude-styled thead,
@@ -378,6 +414,25 @@
   border: none;
   border-top: var(--border-width) solid var(--border);
   margin: var(--space-section) 0;
+}
+
+/* Images: never overflow the content column; keep aspect ratio. */
+.claude-styled img,
+.claude-ui-styled img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Standalone images (sole child of a paragraph) and PlantUML diagrams get the
+   premium "card" treatment: centered block with rounded corners and a hairline. */
+.claude-styled p > img:only-child,
+.claude-ui-styled p > img:only-child,
+.claude-styled img.plantuml-diagram,
+.claude-ui-styled img.plantuml-diagram {
+  display: block;
+  margin: var(--space-block) auto;
+  border-radius: var(--radius);
+  border: var(--border-width) solid var(--img-border);
 }
 
 .claude-styled em,
@@ -803,12 +858,14 @@
 .claude-ui-styled .mermaid-viewport {
   position: relative;
   overflow: hidden;
-  min-height: 120px;
+  min-height: var(--mermaid-min-height);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
   cursor: grab;
   background: var(--card);
   margin: var(--space-block) 0;
+  /* We handle pan + pinch via Pointer Events, so suppress native touch gestures. */
+  touch-action: none;
 }
 
 .claude-styled .mermaid-viewport:active,
@@ -831,26 +888,29 @@
   display: flex;
   gap: 0.25rem;
   z-index: 10;
-  opacity: 0.4;
+  opacity: var(--mermaid-ctrl-idle-opacity);
   transition: opacity 0.15s ease;
 }
 
 .claude-styled .mermaid-viewport:hover .mermaid-controls,
-.claude-ui-styled .mermaid-viewport:hover .mermaid-controls {
+.claude-styled .mermaid-viewport:focus-within .mermaid-controls,
+.claude-ui-styled .mermaid-viewport:hover .mermaid-controls,
+.claude-ui-styled .mermaid-viewport:focus-within .mermaid-controls {
   opacity: 1;
 }
 
 .claude-styled .mermaid-ctrl-btn,
 .claude-ui-styled .mermaid-ctrl-btn {
-  background: var(--card);
-  border: var(--border-width) solid var(--border);
+  background: var(--mermaid-ctrl-bg);
+  border: var(--border-width) solid var(--mermaid-ctrl-border);
   border-radius: var(--radius);
+  box-shadow: var(--mermaid-ctrl-shadow);
   color: var(--foreground);
   cursor: pointer;
   font-size: var(--text-small);
   padding: 0.2rem 0.5rem;
   line-height: 1;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
   font-family: var(--font-sans);
   white-space: nowrap;
 }
@@ -858,6 +918,13 @@
 .claude-styled .mermaid-ctrl-btn:hover,
 .claude-ui-styled .mermaid-ctrl-btn:hover {
   background: var(--accent);
+  border-color: var(--ring);
+}
+
+.claude-styled .mermaid-ctrl-btn:focus-visible,
+.claude-ui-styled .mermaid-ctrl-btn:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
 }
 
 /* ============================================================
@@ -874,12 +941,45 @@
   cursor: pointer;
   user-select: none;
   color: var(--muted-foreground);
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, transform 0.2s ease;
   line-height: 1;
 }
 
 .claude-styled .collapse-toggle:hover,
 .claude-ui-styled .collapse-toggle:hover {
   color: var(--primary);
+}
+
+.claude-styled .collapse-toggle:focus-visible,
+.claude-ui-styled .collapse-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+  color: var(--primary);
+}
+
+/* Rotate a single chevron glyph rather than swapping characters. */
+.claude-styled .collapse-toggle--collapsed,
+.claude-ui-styled .collapse-toggle--collapsed {
+  transform: rotate(-90deg);
+}
+
+/* Smooth collapse/expand via the grid 1fr→0fr technique (no JS height math). */
+.claude-styled .collapsible-section,
+.claude-ui-styled .collapsible-section {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.24s ease;
+}
+
+.claude-styled .collapsible-section--collapsed,
+.claude-ui-styled .collapsible-section--collapsed {
+  grid-template-rows: 0fr;
+}
+
+.claude-styled .collapsible-section__inner,
+.claude-ui-styled .collapsible-section__inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
