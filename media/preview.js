@@ -268,7 +268,7 @@
   }
 
   // ── Mermaid ───────────────────────────────────────────────────────────────
-  async function renderMermaid() {
+  async function renderMermaid(theme) {
     if (typeof window.mermaid === "undefined") {
       return;
     }
@@ -279,18 +279,209 @@
     }
 
     try {
-      if (!window.__claudePreviewMermaidInit) {
-        window.mermaid.initialize({
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: "neutral"
-        });
-        window.__claudePreviewMermaidInit = true;
-      }
+      window.mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: "strict",
+        theme: theme === "dark" ? "dark" : "neutral"
+      });
 
       await window.mermaid.run({ nodes });
     } catch (error) {
       console.error("[markdown-studio] Mermaid rendering failed:", error);
+    }
+  }
+
+  // ── Inline Mermaid pan/zoom ─────────────────────────────────────────────────
+  // Global drag state shared across all mermaid viewports.
+  let activeDrag = null;
+
+  document.addEventListener("mousemove", (e) => {
+    if (!activeDrag) return;
+    activeDrag.state.tx = activeDrag.startTx + (e.clientX - activeDrag.startX);
+    activeDrag.state.ty = activeDrag.startTy + (e.clientY - activeDrag.startY);
+    activeDrag.apply();
+  });
+
+  document.addEventListener("mouseup", () => {
+    if (!activeDrag) return;
+    activeDrag.viewport.style.cursor = "grab";
+    activeDrag = null;
+  });
+
+  function setupMermaidPanZoom() {
+    contentElement.querySelectorAll(".mermaid").forEach((canvas) => {
+      if (canvas.parentElement && canvas.parentElement.classList.contains("mermaid-viewport")) {
+        return;
+      }
+
+      const viewport = document.createElement("div");
+      viewport.className = "mermaid-viewport";
+      canvas.parentNode.insertBefore(viewport, canvas);
+      viewport.appendChild(canvas);
+
+      canvas.style.transformOrigin = "0 0";
+      canvas.style.display = "inline-block";
+      canvas.style.userSelect = "none";
+
+      const state = { scale: 1, tx: 0, ty: 0 };
+
+      function applyTransform() {
+        canvas.style.transform = "translate(" + state.tx + "px, " + state.ty + "px) scale(" + state.scale + ")";
+      }
+
+      viewport.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const rect = viewport.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const factor = e.deltaY < 0 ? 1.1 : 0.9;
+        const newScale = Math.max(0.1, Math.min(20, state.scale * factor));
+        state.tx = mx - (mx - state.tx) * (newScale / state.scale);
+        state.ty = my - (my - state.ty) * (newScale / state.scale);
+        state.scale = newScale;
+        applyTransform();
+      }, { passive: false });
+
+      viewport.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        if (e.target.closest(".mermaid-controls")) return;
+        e.preventDefault();
+        viewport.style.cursor = "grabbing";
+        activeDrag = {
+          viewport,
+          state,
+          startX: e.clientX,
+          startY: e.clientY,
+          startTx: state.tx,
+          startTy: state.ty,
+          apply: applyTransform
+        };
+      });
+
+      const controls = document.createElement("div");
+      controls.className = "mermaid-controls";
+      controls.innerHTML =
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-in\" title=\"Zoom In\">+</button>" +
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"zoom-out\" title=\"Zoom Out\">−</button>" +
+        "<button class=\"mermaid-ctrl-btn\" data-action=\"reset\" title=\"Reset View\">↺ Reset</button>";
+      viewport.appendChild(controls);
+
+      controls.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-action]");
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const cx = viewport.clientWidth / 2;
+        const cy = viewport.clientHeight / 2;
+
+        if (action === "zoom-in") {
+          const newScale = Math.min(20, state.scale * 1.3);
+          state.tx = cx - (cx - state.tx) * (newScale / state.scale);
+          state.ty = cy - (cy - state.ty) * (newScale / state.scale);
+          state.scale = newScale;
+        } else if (action === "zoom-out") {
+          const newScale = Math.max(0.1, state.scale / 1.3);
+          state.tx = cx - (cx - state.tx) * (newScale / state.scale);
+          state.ty = cy - (cy - state.ty) * (newScale / state.scale);
+          state.scale = newScale;
+        } else if (action === "reset") {
+          state.scale = 1;
+          state.tx = 0;
+          state.ty = 0;
+        }
+
+        applyTransform();
+      });
+    });
+  }
+
+  // ── Collapsible headings + toolbar buttons ──────────────────────────────────
+  const collapseAllBtn = document.getElementById("collapseAllBtn");
+  const editBtn = document.getElementById("editBtn");
+
+  if (collapseAllBtn) {
+    collapseAllBtn.addEventListener("click", () => {
+      const sections = contentElement.querySelectorAll(".collapsible-section");
+      const toggles = contentElement.querySelectorAll(".collapse-toggle");
+      if (sections.length === 0) return;
+
+      const anyExpanded = Array.from(sections).some((s) => s.style.display !== "none");
+
+      sections.forEach((section) => {
+        section.style.display = anyExpanded ? "none" : "";
+      });
+      toggles.forEach((toggle) => {
+        toggle.setAttribute("aria-expanded", String(!anyExpanded));
+        toggle.textContent = anyExpanded ? "▶" : "▼";
+      });
+
+      collapseAllBtn.textContent = anyExpanded ? "↕ Expand" : "↕ Collapse";
+      collapseAllBtn.title = anyExpanded ? "Expand all sections" : "Collapse all sections";
+    });
+  }
+
+  if (editBtn) {
+    editBtn.addEventListener("click", () => {
+      vscode.postMessage({ type: "openEditor" });
+    });
+  }
+
+  function setupCollapsibleHeadings() {
+    const headings = Array.from(contentElement.querySelectorAll("h1, h2, h3, h4, h5, h6"));
+
+    headings.forEach((heading) => {
+      const level = parseInt(heading.tagName.charAt(1), 10);
+      const sectionChildren = [];
+      let sibling = heading.nextElementSibling;
+
+      while (sibling) {
+        const siblingTag = sibling.tagName;
+        if (/^H[1-6]$/i.test(siblingTag)) {
+          const siblingLevel = parseInt(siblingTag.charAt(1), 10);
+          if (siblingLevel <= level) {
+            break;
+          }
+        }
+        sectionChildren.push(sibling);
+        sibling = sibling.nextElementSibling;
+      }
+
+      if (sectionChildren.length === 0) {
+        return;
+      }
+
+      const sectionDiv = document.createElement("div");
+      sectionDiv.className = "collapsible-section";
+      heading.after(sectionDiv);
+      sectionChildren.forEach((child) => sectionDiv.appendChild(child));
+
+      const toggle = document.createElement("span");
+      toggle.className = "collapse-toggle";
+      toggle.setAttribute("aria-expanded", "true");
+      toggle.setAttribute("role", "button");
+      toggle.setAttribute("tabindex", "0");
+      toggle.textContent = "▼";
+      heading.prepend(toggle);
+
+      const onToggle = (e) => {
+        e.stopPropagation();
+        const expanded = toggle.getAttribute("aria-expanded") === "true";
+        toggle.setAttribute("aria-expanded", String(!expanded));
+        toggle.textContent = expanded ? "▶" : "▼";
+        sectionDiv.style.display = expanded ? "none" : "";
+      };
+
+      toggle.addEventListener("click", onToggle);
+      toggle.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle(e);
+        }
+      });
+    });
+
+    if (collapseAllBtn) {
+      collapseAllBtn.textContent = "↕ Collapse";
+      collapseAllBtn.title = "Collapse all sections";
     }
   }
 
@@ -348,7 +539,18 @@
     }
 
     const href = link.getAttribute("href") || "";
-    if (!href || href.startsWith("#")) {
+    if (!href) {
+      return;
+    }
+    if (href.startsWith("#")) {
+      // In-page anchor (e.g. heading anchor links): smooth-scroll to the target.
+      if (href.length > 1) {
+        event.preventDefault();
+        const targetEl = document.getElementById(href.slice(1));
+        if (targetEl) {
+          targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }
       return;
     }
 
@@ -747,7 +949,7 @@
   applyWidth();
 
   // ── Message handler ───────────────────────────────────────────────────────
-  window.addEventListener("message", (event) => {
+  window.addEventListener("message", async (event) => {
     const message = event.data;
 
     if (!message) {
@@ -767,6 +969,9 @@
     if (message.type !== "render") {
       return;
     }
+
+    // Reset any in-progress mermaid pan/zoom drag from a previous render.
+    activeDrag = null;
 
     // CRITICAL: clear find highlights BEFORE replacing innerHTML to avoid
     // corrupted DOM state (unwrap cannot find orphaned marks after innerHTML replacement).
@@ -791,8 +996,12 @@
 
     contentElement.innerHTML = message.html || "";
 
+    // Build TOC BEFORE collapsible headings so TOC labels are not polluted by
+    // the prepended collapse toggle glyph.
     buildToc();
-    void renderMermaid();
+    setupCollapsibleHeadings();
+    await renderMermaid(message.theme);
+    setupMermaidPanZoom();
 
     // Re-run find if the bar is open.
     if (findBar.classList.contains("find-bar--visible") && findInput.value.trim()) {
@@ -1022,21 +1231,13 @@
       return;
     }
 
-    // Case 2: clicking a Mermaid diagram container or its SVG child,
-    //         or a PlantUML <img class="plantuml-diagram">
+    // Case 2: clicking a PlantUML <img class="plantuml-diagram">.
+    // (Mermaid diagrams use the inline pan/zoom viewport, not the lightbox.)
     const plantumlImg = rawTarget.closest("img.plantuml-diagram");
     if (plantumlImg && !plantumlImg.closest("a[href]")) {
       event.preventDefault();
       event.stopPropagation();
       lbOpen(plantumlImg);
-      return;
-    }
-
-    const mermaidContainer = rawTarget.closest(".mermaid");
-    if (mermaidContainer) {
-      event.preventDefault();
-      event.stopPropagation();
-      lbOpen(mermaidContainer);
       return;
     }
   });

@@ -351,6 +351,7 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
       }
 
       headingOpen.attrSet("id", slug);
+      headingOpen.attrSet("data-heading-level", headingOpen.tag.slice(1));
 
       // Append anchor token to the inline children
       const anchorToken = new state.Token("html_inline", "", 0);

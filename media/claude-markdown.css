@@ -795,3 +795,91 @@
   opacity: 0.8;
 }
 
+/* ============================================================
+   INLINE MERMAID PAN / ZOOM VIEWPORT
+   ============================================================ */
+
+.claude-styled .mermaid-viewport,
+.claude-ui-styled .mermaid-viewport {
+  position: relative;
+  overflow: hidden;
+  min-height: 120px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  cursor: grab;
+  background: var(--card);
+  margin: var(--space-block) 0;
+}
+
+.claude-styled .mermaid-viewport:active,
+.claude-ui-styled .mermaid-viewport:active {
+  cursor: grabbing;
+}
+
+.claude-styled .mermaid-viewport .mermaid,
+.claude-ui-styled .mermaid-viewport .mermaid {
+  margin: 0;
+  padding: var(--space-block);
+  display: inline-block;
+}
+
+.claude-styled .mermaid-controls,
+.claude-ui-styled .mermaid-controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.25rem;
+  z-index: 10;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+}
+
+.claude-styled .mermaid-viewport:hover .mermaid-controls,
+.claude-ui-styled .mermaid-viewport:hover .mermaid-controls {
+  opacity: 1;
+}
+
+.claude-styled .mermaid-ctrl-btn,
+.claude-ui-styled .mermaid-ctrl-btn {
+  background: var(--card);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: var(--text-small);
+  padding: 0.2rem 0.5rem;
+  line-height: 1;
+  transition: background 0.15s ease;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
+.claude-styled .mermaid-ctrl-btn:hover,
+.claude-ui-styled .mermaid-ctrl-btn:hover {
+  background: var(--accent);
+}
+
+/* ============================================================
+   COLLAPSIBLE HEADINGS (minimizable sections)
+   ============================================================ */
+
+.claude-styled .collapse-toggle,
+.claude-ui-styled .collapse-toggle {
+  display: inline-block;
+  width: 1em;
+  margin-right: 0.3rem;
+  font-size: 0.6em;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  color: var(--muted-foreground);
+  transition: color 0.15s ease;
+  line-height: 1;
+}
+
+.claude-styled .collapse-toggle:hover,
+.claude-ui-styled .collapse-toggle:hover {
+  color: var(--primary);
+}
+

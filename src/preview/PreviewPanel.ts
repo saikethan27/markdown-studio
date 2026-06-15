@@ -32,7 +32,15 @@ interface EditorRevealLineMessage {
   focus?: boolean;
 }
 
-type IncomingWebviewMessage = ReadyMessage | OpenLinkMessage | EditorRevealLineMessage;
+interface OpenEditorMessage {
+  type: "openEditor";
+}
+
+type IncomingWebviewMessage =
+  | ReadyMessage
+  | OpenLinkMessage
+  | EditorRevealLineMessage
+  | OpenEditorMessage;
 
 interface HrefParts {
   pathPart: string;
@@ -267,6 +275,14 @@ export class PreviewPanel {
 
     if (message.type === "editorRevealLine") {
       this.handleEditorRevealLine(message.line, message.focus === true);
+      return;
+    }
+
+    if (message.type === "openEditor") {
+      await vscode.window.showTextDocument(this.currentDocument, {
+        viewColumn: vscode.ViewColumn.One,
+        preview: false
+      });
     }
   }
 
@@ -440,6 +456,9 @@ export class PreviewPanel {
         <button class="ctrl-btn" id="zoomIn" type="button" title="Zoom in (Ctrl+=)" aria-label="Zoom in">A+</button>
         <div class="ctrl-separator" role="separator"></div>
         <button class="ctrl-btn" id="widthCycle" type="button" title="Cycle content width" aria-label="Content width">Normal</button>
+        <div class="ctrl-separator" role="separator"></div>
+        <button class="ctrl-btn" id="collapseAllBtn" type="button" title="Collapse all sections" aria-label="Collapse all sections">&#8597; Collapse</button>
+        <button class="ctrl-btn" id="editBtn" type="button" title="Edit source" aria-label="Edit source">&#9998; Edit</button>
       </div>
     </header>
     <div class="claude-body">
@@ -465,7 +484,8 @@ function isIncomingMessage(value: unknown): value is IncomingWebviewMessage {
   return (
     candidate.type === "ready" ||
     candidate.type === "openLink" ||
-    candidate.type === "editorRevealLine"
+    candidate.type === "editorRevealLine" ||
+    candidate.type === "openEditor"
   );
 }
 
