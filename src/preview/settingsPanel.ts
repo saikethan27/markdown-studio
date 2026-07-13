@@ -66,6 +66,34 @@ export const SETTINGS_PANEL_HTML = `<aside class="settings-sidebar" id="settings
             <div class="setting-item__desc">Choose a preview theme, or add your own from custom CSS.</div>
             <select class="setting-select" id="themeSelect" aria-label="Preview theme"></select>
           </div>
+
+          <div class="setting-separator" role="separator"></div>
+
+          <div class="setting-item">
+            <div class="setting-item__text">
+              <div class="setting-item__label">Show comments</div>
+              <div class="setting-item__desc">Render inline review comments (<code>@ms-comment:</code> markers) as bubbles in the preview.</div>
+            </div>
+            <button class="setting-switch" id="showCommentsToggle" type="button" role="switch" aria-checked="true" aria-label="Show inline comments in the preview">
+              <span class="setting-switch__thumb"></span>
+            </button>
+          </div>
+
+          <div class="setting-item">
+            <div class="setting-item__text">
+              <div class="setting-item__label">Include comments in export</div>
+              <div class="setting-item__desc">Keep comment bubbles when exporting to HTML. Off by default so exports don't leak review notes.</div>
+            </div>
+            <button class="setting-switch" id="includeCommentsExportToggle" type="button" role="switch" aria-checked="false" aria-label="Include comments when exporting">
+              <span class="setting-switch__thumb"></span>
+            </button>
+          </div>
+
+          <div class="setting-block">
+            <label class="setting-item__label" for="commentAuthorInput">Default author name</label>
+            <div class="setting-item__desc">Appended to new comments as <code>—Name</code>. Leave empty for no attribution.</div>
+            <input class="setting-input" id="commentAuthorInput" type="text" placeholder="e.g. Raj" autocomplete="off" spellcheck="false">
+          </div>
         </div>
       </aside>`;
 

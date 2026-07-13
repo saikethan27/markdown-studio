@@ -13,6 +13,88 @@ const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 // Alert types for GFM-style admonitions
 const ALERT_TYPES = new Set(["note", "tip", "important", "warning", "caution"]);
 
+// ── Inline comments (see features/comments.md) ────────────────────────────────
+// A comment marker is a single-line HTML comment: <!-- @ms-comment:ID TEXT -->
+// The instruction block is a multi-line HTML comment opening with
+// <!-- @ms-comment-instructions and is consumed silently (never rendered).
+const MS_COMMENT_LINE_RE = /^<!--\s*@ms-comment:(\S+)\s+([\s\S]*?)\s*-->$/u;
+const MS_INSTRUCTIONS_OPEN_RE = /^<!--\s*@ms-comment-instructions\b/u;
+const MS_COMMENT_ANY_RE = /@ms-comment/u; // cheap pre-filter
+
+/** Reverse the on-write escape of a literal `-->` (see comments.md escaping rules). */
+function unescapeCommentText(text: string): string {
+  return text.replace(/--&gt;/gu, "-->");
+}
+
+type CommentSegment =
+  | { kind: "text"; text: string; line: number | null }
+  | { kind: "comment"; id: string; text: string; line: number | null }
+  | { kind: "instr" };
+
+/**
+ * Split a raw (multi-line) source string into ordered segments of plain text,
+ * `@ms-comment:` markers, and `@ms-comment-instructions` blocks. `startLine` is
+ * the stripped-source line index of the first line (or null when unknown), so
+ * each segment can carry the correct source line for data-line stamping.
+ */
+function segmentCommentSource(raw: string, startLine: number | null): CommentSegment[] {
+  const lines = raw.split("\n");
+  const segments: CommentSegment[] = [];
+  let textBuf: string[] = [];
+  let textStartK = -1;
+
+  const flushText = (): void => {
+    if (textBuf.length > 0) {
+      segments.push({
+        kind: "text",
+        text: textBuf.join("\n"),
+        line: startLine != null && textStartK >= 0 ? startLine + textStartK : null
+      });
+      textBuf = [];
+      textStartK = -1;
+    }
+  };
+
+  let k = 0;
+  while (k < lines.length) {
+    const trimmed = lines[k].trim();
+
+    const marker = MS_COMMENT_LINE_RE.exec(trimmed);
+    if (marker) {
+      flushText();
+      segments.push({
+        kind: "comment",
+        id: marker[1],
+        text: unescapeCommentText(marker[2]),
+        line: startLine != null ? startLine + k : null
+      });
+      k += 1;
+      continue;
+    }
+
+    if (MS_INSTRUCTIONS_OPEN_RE.test(trimmed)) {
+      flushText();
+      // Consume through the line that closes the comment (contains `-->`).
+      let j = k;
+      while (j < lines.length && !lines[j].includes("-->")) {
+        j += 1;
+      }
+      segments.push({ kind: "instr" });
+      k = j + 1;
+      continue;
+    }
+
+    if (textBuf.length === 0) {
+      textStartK = k;
+    }
+    textBuf.push(lines[k]);
+    k += 1;
+  }
+  flushText();
+
+  return segments;
+}
+
 export interface RendererSettings {
   autoUpdateDebounceMs: number;
   enableMermaid: boolean;
@@ -24,6 +106,10 @@ export interface RendererSettings {
   enableEmoji: boolean;
   enablePlantuml: boolean;
   plantumlServerUrl: string;
+  /** Inline comments: render `@ms-comment:` markers as bubbles. Default true. */
+  showComments?: boolean;
+  /** Include comment bubbles when exporting to HTML/PDF. Default false. */
+  includeCommentsInExport?: boolean;
 }
 
 export interface RenderContext {
@@ -195,6 +281,150 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   if (context.settings.enableEmoji) {
     markdown.use(markdownItEmoji as any);
   }
+
+  // Inline comments: consume `@ms-comment:` markers + the instruction block and
+  // turn markers into `ms_comment` tokens. Runs BEFORE the `inline` rule so we
+  // operate on the raw (typographer-untouched) `inline.content`, and any residual
+  // paragraph text is re-parsed normally by the subsequent `inline` rule. This
+  // works identically whether markdown-it `html` is true (markers arrive as
+  // `html_block` tokens) or false (markers arrive inside paragraph `inline`
+  // tokens — the current default).
+  markdown.core.ruler.before("inline", "ms_comments", (state: any) => {
+    const tokens = state.tokens;
+    const out: any[] = [];
+
+    const makeCommentToken = (seg: Extract<CommentSegment, { kind: "comment" }>): any => {
+      const token = new state.Token("ms_comment", "", 0);
+      token.block = true;
+      token.meta = { id: seg.id, text: seg.text };
+      if (seg.line != null) {
+        token.map = [seg.line, seg.line + 1];
+      }
+      return token;
+    };
+
+    const makeTextTokens = (
+      seg: Extract<CommentSegment, { kind: "text" }>,
+      asHtmlBlock: boolean
+    ): any[] => {
+      const lineCount = seg.text.split("\n").length;
+      if (asHtmlBlock) {
+        const html = new state.Token("html_block", "", 0);
+        html.block = true;
+        html.content = `${seg.text}\n`;
+        if (seg.line != null) {
+          html.map = [seg.line, seg.line + lineCount];
+        }
+        return [html];
+      }
+      const open = new state.Token("paragraph_open", "p", 1);
+      open.block = true;
+      const inline = new state.Token("inline", "", 0);
+      inline.content = seg.text;
+      inline.children = [];
+      const close = new state.Token("paragraph_close", "p", -1);
+      close.block = true;
+      if (seg.line != null) {
+        open.map = [seg.line, seg.line + lineCount];
+        inline.map = [seg.line, seg.line + lineCount];
+      }
+      return [open, inline, close];
+    };
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      // html:true path — a standalone HTML comment is its own html_block.
+      if (token.type === "html_block" && MS_COMMENT_ANY_RE.test(token.content)) {
+        const startLine = token.map ? token.map[0] : null;
+        const segs = segmentCommentSource(token.content.replace(/\n$/u, ""), startLine);
+        if (!segs.some((s) => s.kind !== "text")) {
+          out.push(token);
+          continue;
+        }
+        for (const seg of segs) {
+          if (seg.kind === "comment") {
+            out.push(makeCommentToken(seg));
+          } else if (seg.kind === "text") {
+            out.push(...makeTextTokens(seg, true));
+          }
+          // seg.kind === "instr" → consumed silently
+        }
+        continue;
+      }
+
+      // html:false path (current default) — a marker lives inside a paragraph's
+      // inline token, possibly glued to preceding text with no blank line.
+      const next = tokens[i + 1];
+      const after = tokens[i + 2];
+      if (
+        token.type === "paragraph_open" &&
+        next &&
+        next.type === "inline" &&
+        after &&
+        after.type === "paragraph_close" &&
+        MS_COMMENT_ANY_RE.test(next.content)
+      ) {
+        const startLine = next.map ? next.map[0] : token.map ? token.map[0] : null;
+        const segs = segmentCommentSource(next.content, startLine);
+        if (!segs.some((s) => s.kind !== "text")) {
+          out.push(token, next, after);
+          i += 2;
+          continue;
+        }
+        for (const seg of segs) {
+          if (seg.kind === "comment") {
+            out.push(makeCommentToken(seg));
+          } else if (seg.kind === "text") {
+            out.push(...makeTextTokens(seg, false));
+          }
+        }
+        i += 2;
+        continue;
+      }
+
+      out.push(token);
+    }
+
+    state.tokens = out;
+  });
+
+  // Renderer for the custom `ms_comment` token — emits a comment bubble. The
+  // text is HTML-escaped (never injected raw). Suppressed when comments are
+  // hidden, or in export mode unless explicitly included.
+  markdown.renderer.rules.ms_comment = (tokens: any[], index: number) => {
+    const token = tokens[index];
+    const showComments = context.settings.showComments !== false;
+    const includeInExport = context.settings.includeCommentsInExport === true;
+    if (!showComments) {
+      return "";
+    }
+    if (context.exportMode && !includeInExport) {
+      return "";
+    }
+
+    const id: string = token.meta?.id ?? "";
+    const text: string = token.meta?.text ?? "";
+    const dataLine = token.attrGet("data-line");
+    const lineAttr = dataLine != null ? ` data-line="${escapeHtml(String(dataLine))}"` : "";
+
+    // Highlight an agent's "[skipped: <reason>]" trail so it stands out in the bubble.
+    const body = escapeHtml(text).replace(
+      /\[skipped:[^\]]*\]/gu,
+      (match) => `<span class="md-comment-skipped">${match}</span>`
+    );
+
+    return [
+      `<aside class="md-comment" data-comment-id="${escapeHtml(id)}"${lineAttr}>`,
+      `<span class="md-comment__icon" aria-hidden="true"></span>`,
+      `<div class="md-comment__body">${body}</div>`,
+      `<div class="md-comment__actions">`,
+      `<button class="md-comment__btn md-comment__edit" type="button" title="Edit comment" aria-label="Edit comment">Edit</button>`,
+      `<button class="md-comment__btn md-comment__resolve" type="button" title="Resolve (delete) comment" aria-label="Resolve comment">Resolve</button>`,
+      `</div>`,
+      `</aside>`
+    ].join("");
+  };
 
   // Core ruler: stamp data-line on every block token that has source map info.
   // Add frontmatterLineOffset so line numbers reflect the original document (not the stripped body).

@@ -1,0 +1,19 @@
+# Test tooling & sources — keep them out of the published .vsix.
+.github/**
+.vscode/**
+.vscode-test/**
+.vscode-test.mjs
+.mocharc.js
+test/**
+test-resources/**
+src/**
+out/test/**
+out/ui-test/**
+out/**/*.test.js
+out/**/*.test.js.map
+out/**/*.map
+tsconfig.json
+**/*.ts
+features/**
+html_example_demo/**
+Gemini_Generated_Image_*.png

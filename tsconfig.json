@@ -16,7 +16,8 @@
     "skipLibCheck": true,
     "types": [
       "node",
-      "vscode"
+      "vscode",
+      "mocha"
     ]
   },
   "include": [
@@ -25,6 +26,7 @@
   ],
   "exclude": [
     "node_modules",
-    ".vscode-test"
+    ".vscode-test",
+    "test-resources"
   ]
 }

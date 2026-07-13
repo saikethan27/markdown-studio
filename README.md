@@ -44,6 +44,29 @@ export. All styling is driven by a single CSS token layer, so re-theming is easy
 - **Print / Export to PDF** — opens the print dialog (choose *Save as PDF*).
 - **Copy rendered HTML** to the clipboard.
 
+### Inline comments & agent review loop
+- **Comment on any block** — hover a block and click the **＋** margin button (or a
+  comment's *Edit*) to write a review note. Comments render as inline bubbles in
+  the preview.
+- **The file is the database.** Each comment is stored as a plain single-line HTML
+  comment written right after the block it annotates:
+  `<!-- @ms-comment:c1 your note -->`. It's invisible to GitHub and every normal
+  Markdown renderer, and it round-trips as plain text.
+- **Travels to any agent.** Because comments live in the file's bytes, any tool that
+  reads the `.md` (Claude Code, Cursor, Copilot-in-editor, …) sees them in place. A
+  one-time instruction block is appended at the bottom telling the agent to apply
+  each change and **delete the marker as it goes** — so addressed comments simply
+  vanish. Deleting the last comment removes the instruction block too.
+- **Copy for chat** — for chat-only tools (ChatGPT / Claude.ai web) that can't open
+  the file, *Copy Comments for Chat* builds a paste-ready prompt (document body + a
+  digest of the comments).
+- **Review changes** — *Send to Agent* / *Copy for Chat* snapshots the file first;
+  after the agent edits it, *Review Changes* opens VS Code's native before/after
+  diff so you can see exactly what changed.
+- Resolve a comment by clicking **Resolve** (deletes its marker) — the same edit an
+  agent makes when it addresses one. All writes are `WorkspaceEdit`s, so **undo/redo**
+  works. Comments are hidden from HTML/PDF export by default (`includeCommentsInExport`).
+
 ### Link handling
 - `http` / `https` / `mailto` open externally.
 - Relative `.md` links open in the editor and retarget the preview.
@@ -58,6 +81,9 @@ export. All styling is driven by a single CSS token layer, so re-theming is easy
 | `claudeMarkdownPreview.exportHtml` | Export to HTML |
 | `claudeMarkdownPreview.exportPdf` | Print / Export to PDF |
 | `claudeMarkdownPreview.copyHtml` | Copy Rendered HTML |
+| `claudeMarkdownPreview.sendToAgent` | Send to Agent (snapshot for review) |
+| `claudeMarkdownPreview.copyCommentsForChat` | Copy Comments for Chat |
+| `claudeMarkdownPreview.reviewChanges` | Review Changes (diff vs. snapshot) |
 
 ## Keyboard shortcuts
 
@@ -84,6 +110,9 @@ export. All styling is driven by a single CSS token layer, so re-theming is easy
 | `claudeMarkdownPreview.customCssPath` | `""` | Path to a custom CSS file loaded last (absolute or workspace-relative). Override tokens to re-theme. |
 | `claudeMarkdownPreview.enablePlantuml` | `false` | Render PlantUML diagrams (`plantuml` / `puml` fences) via a server. |
 | `claudeMarkdownPreview.plantumlServerUrl` | `"https://www.plantuml.com/plantuml"` | PlantUML server base URL. Diagram text is sent to this server; requires network access. |
+| `claudeMarkdownPreview.showComments` | `true` | Render inline review comments (`@ms-comment:` markers) as bubbles. |
+| `claudeMarkdownPreview.includeCommentsInExport` | `false` | Include comment bubbles in HTML/PDF export. |
+| `claudeMarkdownPreview.commentAuthor` | `""` | Optional author appended to new comments as `—Name`. |
 
 ## Custom theming
 

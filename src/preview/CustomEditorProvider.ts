@@ -2,6 +2,7 @@
 import * as path from "node:path";
 import * as vscode from "vscode";
 import { renderMarkdown, type RendererSettings } from "../render/markdownRenderer";
+import { addComment, deleteComment, listComments, updateComment, updateCommentConfig } from "./comments";
 import { isDefaultMarkdownEditor, setDefaultMarkdownEditor } from "./defaultEditor";
 import { SETTINGS_PANEL_HTML, THEME_MODAL_HTML } from "./settingsPanel";
 import {
@@ -25,6 +26,7 @@ interface RenderPayload {
   title: string;
   wordCount: number;
   readingTimeMin: number;
+  commentCount: number;
 }
 
 interface ReadyMessage {
@@ -67,6 +69,34 @@ interface SaveThemeMessage {
   css: string;
 }
 
+interface AddCommentMessage {
+  type: "addComment";
+  line: number;
+  text: string;
+}
+
+interface UpdateCommentMessage {
+  type: "updateComment";
+  id: string;
+  text: string;
+}
+
+interface DeleteCommentMessage {
+  type: "deleteComment";
+  id: string;
+}
+
+interface RevealCommentMessage {
+  type: "revealComment";
+  id: string;
+}
+
+interface SetCommentConfigMessage {
+  type: "setCommentConfig";
+  key: "showComments" | "includeCommentsInExport" | "commentAuthor";
+  value: boolean | string;
+}
+
 type IncomingWebviewMessage =
   | ReadyMessage
   | OpenLinkMessage
@@ -75,7 +105,12 @@ type IncomingWebviewMessage =
   | RequestSettingsMessage
   | SetDefaultEditorMessage
   | SetThemeMessage
-  | SaveThemeMessage;
+  | SaveThemeMessage
+  | AddCommentMessage
+  | UpdateCommentMessage
+  | DeleteCommentMessage
+  | RevealCommentMessage
+  | SetCommentConfigMessage;
 
 interface HrefParts {
   pathPart: string;
@@ -199,6 +234,14 @@ export class CustomEditorSession {
         this.postSettingsState();
         this.scheduleRender();
       }
+      if (
+        event.affectsConfiguration("claudeMarkdownPreview.showComments") ||
+        event.affectsConfiguration("claudeMarkdownPreview.includeCommentsInExport") ||
+        event.affectsConfiguration("claudeMarkdownPreview.commentAuthor")
+      ) {
+        this.postSettingsState();
+        this.scheduleRender();
+      }
     }, null, this.disposables);
 
     this.scheduleRender();
@@ -206,11 +249,15 @@ export class CustomEditorSession {
 
   /** Post the current settings state (toggle + theme list) to the webview. */
   private postSettingsState(): void {
+    const config = vscode.workspace.getConfiguration("claudeMarkdownPreview");
     void this.webviewPanel.webview.postMessage({
       type: "settingsState",
       isDefaultEditor: isDefaultMarkdownEditor(),
       themes: getThemeOptions(),
-      activeTheme: getActiveThemeId()
+      activeTheme: getActiveThemeId(),
+      showComments: config.get<boolean>("showComments", true),
+      includeCommentsInExport: config.get<boolean>("includeCommentsInExport", false),
+      commentAuthor: config.get<string>("commentAuthor", "")
     });
   }
 
@@ -268,6 +315,7 @@ export class CustomEditorSession {
 
     const wordCount = docText.trim().split(/\s+/u).filter((w) => w.length > 0).length;
     const readingTimeMin = Math.max(1, Math.round(wordCount / 200));
+    const commentCount = listComments(this.currentDocument).length;
 
     const payload: RenderPayload = {
       type: "render",
@@ -277,7 +325,8 @@ export class CustomEditorSession {
       customThemeCss: getActiveCustomThemeCss(),
       title,
       wordCount,
-      readingTimeMin
+      readingTimeMin,
+      commentCount
     };
 
     this.webviewPanel.title = title;
@@ -370,6 +419,40 @@ export class CustomEditorSession {
         "default",
         vscode.ViewColumn.Beside
       );
+      return;
+    }
+
+    if (message.type === "addComment") {
+      if (await addComment(this.currentDocument, message.line, message.text)) {
+        await this.currentDocument.save();
+      }
+      return;
+    }
+
+    if (message.type === "updateComment") {
+      if (await updateComment(this.currentDocument, message.id, message.text)) {
+        await this.currentDocument.save();
+      }
+      return;
+    }
+
+    if (message.type === "deleteComment") {
+      if (await deleteComment(this.currentDocument, message.id)) {
+        await this.currentDocument.save();
+      }
+      return;
+    }
+
+    if (message.type === "revealComment") {
+      const comment = listComments(this.currentDocument).find((c) => c.id === message.id);
+      if (comment) {
+        this.handleEditorRevealLine(comment.line, true);
+      }
+      return;
+    }
+
+    if (message.type === "setCommentConfig") {
+      await updateCommentConfig(message.key, message.value);
     }
   }
 
@@ -451,7 +534,9 @@ export class CustomEditorSession {
       enableFrontmatter: config.get<boolean>("enableFrontmatter", true),
       enableEmoji: config.get<boolean>("enableEmoji", true),
       enablePlantuml: config.get<boolean>("enablePlantuml", false),
-      plantumlServerUrl: config.get<string>("plantumlServerUrl", "https://www.plantuml.com/plantuml")
+      plantumlServerUrl: config.get<string>("plantumlServerUrl", "https://www.plantuml.com/plantuml"),
+      showComments: config.get<boolean>("showComments", true),
+      includeCommentsInExport: config.get<boolean>("includeCommentsInExport", false)
     };
   }
 
@@ -573,7 +658,12 @@ function isIncomingMessage(value: unknown): value is IncomingWebviewMessage {
     candidate.type === "requestSettings" ||
     candidate.type === "setDefaultEditor" ||
     candidate.type === "setTheme" ||
-    candidate.type === "saveTheme"
+    candidate.type === "saveTheme" ||
+    candidate.type === "addComment" ||
+    candidate.type === "updateComment" ||
+    candidate.type === "deleteComment" ||
+    candidate.type === "revealComment" ||
+    candidate.type === "setCommentConfig"
   );
 }
 

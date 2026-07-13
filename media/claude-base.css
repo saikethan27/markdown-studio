@@ -605,6 +605,248 @@ body {
   padding: 0;
 }
 
+/* ── Inline comments / annotations (features/comments.md) ─────────────────── */
+
+/* Comment bubble rendered beneath the block it annotates. */
+.md-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.3rem 0 0.45rem;
+  padding: 0.28rem 0.5rem;
+  background: var(--comment-bg);
+  border: var(--border-width) solid var(--comment-border);
+  border-left: 2px solid var(--comment-accent);
+  border-radius: calc(var(--comment-radius) - 2px);
+  color: var(--comment-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+/* CSS-drawn speech bubble so the icon themes via --comment-accent. */
+.md-comment__icon {
+  position: relative;
+  flex: none;
+  width: var(--comment-icon-size);
+  height: var(--comment-icon-size);
+  margin-top: 0.12rem;
+}
+
+.md-comment__icon::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 28% 0;
+  border-radius: 3px;
+  background: var(--comment-accent);
+}
+
+.md-comment__icon::after {
+  content: "";
+  position: absolute;
+  left: 22%;
+  bottom: 0;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-top: 5px solid var(--comment-accent);
+}
+
+.md-comment__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Marks a comment left un-applied by an agent: "[skipped: …]". */
+.md-comment__body .md-comment-skipped {
+  color: var(--comment-meta);
+  font-style: italic;
+}
+
+.md-comment__actions {
+  display: flex;
+  flex: none;
+  gap: 0.25rem;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.md-comment:hover .md-comment__actions,
+.md-comment:focus-within .md-comment__actions {
+  opacity: 1;
+}
+
+.md-comment__btn {
+  padding: 0.1rem 0.4rem;
+  background: transparent;
+  color: var(--comment-action-color);
+  border: var(--border-width) solid transparent;
+  border-radius: calc(var(--comment-radius) - 3px);
+  font-size: 0.75rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  line-height: 1.3;
+}
+
+.md-comment__btn:hover {
+  background: var(--comment-action-hover-bg);
+  color: var(--comment-action-hover-color);
+}
+
+/* Block currently associated with a hovered/focused comment. */
+.md-comment-anchor-highlight {
+  border-radius: calc(var(--comment-radius) - 2px);
+  outline: 2px solid var(--comment-anchor-outline);
+  outline-offset: 3px;
+  background: var(--comment-anchor-bg);
+  transition: background 0.15s ease;
+}
+
+/* Header toggle: hide all comment bubbles without a re-render. */
+body.comments-hidden .md-comment {
+  display: none;
+}
+
+/* Hover "＋ comment" affordance on annotatable blocks. */
+.md-comment-add {
+  position: fixed;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  padding: 0;
+  background: var(--comment-add-bg);
+  color: var(--comment-add-color);
+  border: var(--border-width) solid var(--comment-composer-border);
+  border-radius: 999px;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.15);
+  opacity: 0;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+
+.md-comment-add--visible {
+  opacity: 1;
+}
+
+.md-comment-add:hover {
+  background: var(--comment-add-hover-bg);
+  color: var(--comment-add-hover-color);
+  border-color: var(--comment-add-hover-bg);
+  transform: scale(1.08);
+}
+
+/* Inline composer popover for authoring / editing a comment — a single classic
+   rounded box holding the field + actions (see the reference in comments.md). */
+.md-comment-composer {
+  position: fixed;
+  z-index: 60;
+  display: none;
+  width: min(28rem, 90vw);
+  padding: 0;
+  overflow: hidden;
+  background: var(--comment-composer-bg);
+  border: var(--border-width) solid var(--comment-composer-border);
+  border-radius: 14px;
+  box-shadow: var(--comment-composer-shadow);
+  font-family: var(--font-sans);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.md-comment-composer:focus-within {
+  border-color: var(--comment-blue);
+  box-shadow: var(--comment-composer-shadow),
+    0 0 0 2px color-mix(in oklch, var(--comment-blue) 30%, transparent);
+}
+
+/* Accessible name only — the reference composer shows no visible label. */
+.md-comment-composer__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.md-comment-composer__textarea {
+  display: block;
+  width: 100%;
+  min-height: 3.75rem;
+  padding: 0.7rem 0.85rem;
+  background: transparent;
+  color: var(--foreground);
+  border: none;
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.md-comment-composer__textarea::placeholder {
+  color: var(--muted-foreground);
+}
+
+.md-comment-composer__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  padding: 0.5rem 0.6rem 0.6rem;
+}
+
+/* Classic composer buttons: ghost Cancel + filled blue Add Comment. */
+.md-comment-composer__btn {
+  padding: 0.34rem 0.8rem;
+  border: var(--border-width) solid transparent;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease, transform 0.08s ease;
+}
+
+.md-comment-composer__btn:active {
+  transform: scale(0.96);
+}
+
+.md-comment-composer__btn:focus-visible {
+  outline: 2px solid var(--comment-blue);
+  outline-offset: 2px;
+}
+
+.md-comment-composer__btn--ghost {
+  background: transparent;
+  color: var(--muted-foreground);
+}
+
+.md-comment-composer__btn--ghost:hover {
+  background: color-mix(in oklch, var(--foreground) 10%, transparent);
+  color: var(--foreground);
+}
+
+.md-comment-composer__btn--primary {
+  background: var(--comment-blue);
+  color: var(--comment-blue-contrast);
+}
+
+.md-comment-composer__btn--primary:hover {
+  background: var(--comment-blue-strong);
+}
+
 /* ── Print / PDF export ──────────────────────────────────────────────────── */
 @media print {
   /* Hide all interactive UI chrome */
@@ -617,7 +859,14 @@ body {
   .code-copy-btn,
   .heading-anchor,
   .toc-toggle,
-  .ctrl-separator {
+  .ctrl-separator,
+  .md-comment-add,
+  .md-comment-composer {
+    display: none !important;
+  }
+
+  /* Comments are review chrome — suppressed unless the user opts to keep them. */
+  body:not(.print-comments) .md-comment {
     display: none !important;
   }
 

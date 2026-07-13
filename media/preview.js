@@ -635,6 +635,51 @@
     });
   }
 
+  // ── Comment settings (Show comments / Include in export / Author) ───────────
+  const showCommentsToggle = document.getElementById("showCommentsToggle");
+  const includeCommentsExportToggle = document.getElementById("includeCommentsExportToggle");
+  const commentAuthorInput = document.getElementById("commentAuthorInput");
+
+  function applySwitchState(el, on) {
+    if (!el) {
+      return;
+    }
+    el.setAttribute("aria-checked", on ? "true" : "false");
+    el.classList.toggle("setting-switch--on", !!on);
+  }
+
+  function applyCommentSettings(message) {
+    applySwitchState(showCommentsToggle, message.showComments !== false);
+    applySwitchState(includeCommentsExportToggle, message.includeCommentsInExport === true);
+    // Let the print/PDF path keep comments only when export inclusion is on.
+    body.classList.toggle("print-comments", message.includeCommentsInExport === true);
+    if (commentAuthorInput && document.activeElement !== commentAuthorInput) {
+      commentAuthorInput.value = message.commentAuthor || "";
+    }
+  }
+
+  if (showCommentsToggle) {
+    showCommentsToggle.addEventListener("click", () => {
+      const on = showCommentsToggle.getAttribute("aria-checked") === "true";
+      vscode.postMessage({ type: "setCommentConfig", key: "showComments", value: !on });
+    });
+  }
+  if (includeCommentsExportToggle) {
+    includeCommentsExportToggle.addEventListener("click", () => {
+      const on = includeCommentsExportToggle.getAttribute("aria-checked") === "true";
+      vscode.postMessage({ type: "setCommentConfig", key: "includeCommentsInExport", value: !on });
+    });
+  }
+  if (commentAuthorInput) {
+    commentAuthorInput.addEventListener("change", () => {
+      vscode.postMessage({
+        type: "setCommentConfig",
+        key: "commentAuthor",
+        value: commentAuthorInput.value.trim()
+      });
+    });
+  }
+
   // ── Theme selection + custom themes ─────────────────────────────────────────
   const ADD_THEME_VALUE = "__add_new_theme__";
   const themeSelect = document.getElementById("themeSelect");
@@ -1357,6 +1402,7 @@
     if (message.type === "settingsState") {
       applyDefaultEditorState(message.isDefaultEditor === true);
       populateThemes(message.themes, message.activeTheme);
+      applyCommentSettings(message);
       return;
     }
 
@@ -1693,6 +1739,348 @@
       lbOpen(plantumlImg);
       return;
     }
+  });
+
+  // ── Inline comments (features/comments.md) ──────────────────────────────────
+  const previewMain = document.querySelector(".preview-main");
+
+  // Header: show/hide toggle + count, injected so both hosts stay untouched.
+  let commentsHidden = state.commentsHidden === true;
+  let commentsToggleBtn = null;
+  const headerControls = document.querySelector(".header-controls");
+  if (headerControls) {
+    commentsToggleBtn = document.createElement("button");
+    commentsToggleBtn.className = "ctrl-btn";
+    commentsToggleBtn.id = "commentsToggle";
+    commentsToggleBtn.type = "button";
+    commentsToggleBtn.style.display = "none";
+    commentsToggleBtn.setAttribute("aria-label", "Toggle comments");
+    // Insert to the left of the Edit button, in its own separated group.
+    const editBtnRef = document.getElementById("editBtn");
+    const sep = document.createElement("div");
+    sep.className = "ctrl-separator";
+    sep.setAttribute("role", "separator");
+    if (editBtnRef && editBtnRef.parentNode === headerControls) {
+      headerControls.insertBefore(commentsToggleBtn, editBtnRef);
+      headerControls.insertBefore(sep, editBtnRef);
+    } else {
+      headerControls.appendChild(commentsToggleBtn);
+      headerControls.appendChild(sep);
+    }
+    commentsToggleBtn.addEventListener("click", () => {
+      commentsHidden = !commentsHidden;
+      saveState({ commentsHidden });
+      applyCommentsHidden();
+    });
+  }
+
+  function applyCommentsHidden() {
+    body.classList.toggle("comments-hidden", commentsHidden);
+    if (commentsToggleBtn) {
+      commentsToggleBtn.classList.toggle("ctrl-btn--active", commentsHidden);
+      commentsToggleBtn.title = commentsHidden ? "Show comments" : "Hide comments";
+    }
+  }
+
+  function updateCommentCount(count) {
+    if (!commentsToggleBtn) {
+      return;
+    }
+    if (count > 0) {
+      commentsToggleBtn.style.display = "";
+      commentsToggleBtn.textContent = "🗨 " + count;
+    } else {
+      commentsToggleBtn.style.display = "none";
+    }
+  }
+
+  applyCommentsHidden();
+
+  // Floating "＋" affordance (appended to body so it survives innerHTML rebuilds).
+  const addBtn = document.createElement("button");
+  addBtn.className = "md-comment-add";
+  addBtn.type = "button";
+  addBtn.title = "Add comment";
+  addBtn.setAttribute("aria-label", "Add comment on this block");
+  addBtn.innerHTML =
+    '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true" focusable="false">' +
+    '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>' +
+    "</svg>";
+  document.body.appendChild(addBtn);
+
+  let addTargetLine = null;
+  let addHideTimer = null;
+
+  function positionAddButton(block) {
+    const r = block.getBoundingClientRect();
+    addBtn.style.top = Math.max(48, r.top) + "px";
+    addBtn.style.left = Math.max(2, r.left - 26) + "px";
+  }
+
+  function showAddFor(block) {
+    const lineAttr = block.getAttribute("data-line");
+    if (lineAttr === null) {
+      return;
+    }
+    const line = parseInt(lineAttr, 10);
+    if (isNaN(line)) {
+      return;
+    }
+    addTargetLine = line;
+    positionAddButton(block);
+    addBtn.classList.add("md-comment-add--visible");
+  }
+
+  function hideAddButton() {
+    addBtn.classList.remove("md-comment-add--visible");
+  }
+
+  function scheduleHideAdd() {
+    cancelHideAdd();
+    addHideTimer = setTimeout(hideAddButton, 140);
+  }
+
+  function cancelHideAdd() {
+    if (addHideTimer) {
+      clearTimeout(addHideTimer);
+      addHideTimer = null;
+    }
+  }
+
+  contentElement.addEventListener("mouseover", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const block = target.closest("[data-line]");
+    // Skip comment bubbles and code internals; only offer add on real blocks.
+    if (!block || block.classList.contains("md-comment")) {
+      return;
+    }
+    cancelHideAdd();
+    showAddFor(block);
+  });
+
+  if (previewMain) {
+    previewMain.addEventListener("mouseleave", scheduleHideAdd);
+  }
+  addBtn.addEventListener("mouseenter", cancelHideAdd);
+  addBtn.addEventListener("mouseleave", scheduleHideAdd);
+  window.addEventListener("scroll", hideAddButton, { passive: true });
+
+  addBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (addTargetLine === null) {
+      return;
+    }
+    openComposer({ mode: "add", line: addTargetLine, anchorRect: addBtn.getBoundingClientRect() });
+  });
+
+  // Composer popover (also body-appended / viewport-fixed).
+  const composer = document.createElement("div");
+  composer.className = "md-comment-composer";
+  composer.setAttribute("role", "dialog");
+  composer.setAttribute("aria-label", "Comment composer");
+  composer.innerHTML = [
+    '<label class="md-comment-composer__label" id="msComposerLabel">Add comment</label>',
+    '<textarea class="md-comment-composer__textarea" id="msComposerText" placeholder="Leave a comment" spellcheck="true"></textarea>',
+    '<div class="md-comment-composer__footer">',
+    '<button class="md-comment-composer__btn md-comment-composer__btn--ghost" type="button" data-action="cancel">Cancel</button>',
+    '<button class="md-comment-composer__btn md-comment-composer__btn--primary" type="button" data-action="submit">Add Comment</button>',
+    '</div>'
+  ].join("");
+  document.body.appendChild(composer);
+
+  const composerLabel = composer.querySelector("#msComposerLabel");
+  const composerText = composer.querySelector("#msComposerText");
+  const composerSubmit = composer.querySelector('[data-action="submit"]');
+  const composerCancel = composer.querySelector('[data-action="cancel"]');
+
+  let composerMode = "add";
+  let composerLine = null;
+  let composerId = null;
+
+  function isComposerOpen() {
+    return composer.style.display === "block";
+  }
+
+  function positionComposer(anchorRect) {
+    const w = composer.offsetWidth || 360;
+    let left = anchorRect.left;
+    left = Math.min(left, window.innerWidth - w - 8);
+    left = Math.max(8, left);
+    let top = anchorRect.bottom + 6;
+    // If it would overflow the bottom, place it above the anchor instead.
+    const h = composer.offsetHeight || 160;
+    if (top + h > window.innerHeight - 8) {
+      top = Math.max(8, anchorRect.top - h - 6);
+    }
+    composer.style.left = left + "px";
+    composer.style.top = top + "px";
+  }
+
+  function openComposer(opts) {
+    hideAddButton();
+    composerMode = opts.mode;
+    composerLine = opts.line != null ? opts.line : null;
+    composerId = opts.id != null ? opts.id : null;
+    composerText.value = opts.initialText || "";
+    composerLabel.textContent = opts.mode === "edit" ? "Edit comment" : "Add comment";
+    composerSubmit.textContent = opts.mode === "edit" ? "Save" : "Add Comment";
+    composer.style.display = "block";
+    // Measure after display to position correctly, then show.
+    positionComposer(opts.anchorRect || { left: 40, top: 60, bottom: 60 });
+    composerText.focus();
+    composerText.select();
+  }
+
+  function closeComposer() {
+    composer.style.display = "none";
+    composerText.value = "";
+    composerMode = "add";
+    composerLine = null;
+    composerId = null;
+  }
+
+  function submitComposer() {
+    const text = (composerText.value || "").trim();
+    if (!text) {
+      composerText.focus();
+      return;
+    }
+    if (composerMode === "edit" && composerId != null) {
+      vscode.postMessage({ type: "updateComment", id: composerId, text });
+    } else if (composerLine != null) {
+      vscode.postMessage({ type: "addComment", line: composerLine, text });
+    }
+    closeComposer();
+  }
+
+  composerSubmit.addEventListener("click", submitComposer);
+  composerCancel.addEventListener("click", closeComposer);
+  composerText.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeComposer();
+      return;
+    }
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      submitComposer();
+    }
+  });
+
+  // Click outside the composer (and not on the add button) closes it.
+  document.addEventListener("mousedown", (event) => {
+    if (!isComposerOpen()) {
+      return;
+    }
+    const target = event.target;
+    if (target instanceof Element && (composer.contains(target) || target === addBtn)) {
+      return;
+    }
+    closeComposer();
+  });
+
+  // ── Bubble interactions: edit / resolve / reveal + anchor highlight ──────────
+  let anchorHighlightEl = null;
+
+  function clearAnchorHighlight() {
+    if (anchorHighlightEl) {
+      anchorHighlightEl.classList.remove("md-comment-anchor-highlight");
+      anchorHighlightEl = null;
+    }
+  }
+
+  function highlightAnchorForBubble(bubble) {
+    clearAnchorHighlight();
+    const bubbleLine = parseInt(bubble.getAttribute("data-line"), 10);
+    if (isNaN(bubbleLine)) {
+      return;
+    }
+    // The annotated block is the element with the greatest data-line below the
+    // bubble's marker line (the marker sits immediately after its block).
+    let best = null;
+    let bestLine = -1;
+    contentElement.querySelectorAll("[data-line]").forEach((el) => {
+      if (el.classList.contains("md-comment")) {
+        return;
+      }
+      const l = parseInt(el.getAttribute("data-line"), 10);
+      if (!isNaN(l) && l < bubbleLine && l > bestLine) {
+        bestLine = l;
+        best = el;
+      }
+    });
+    if (best) {
+      best.classList.add("md-comment-anchor-highlight");
+      anchorHighlightEl = best;
+    }
+  }
+
+  contentElement.addEventListener("mouseover", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const bubble = target.closest(".md-comment");
+    if (bubble) {
+      highlightAnchorForBubble(bubble);
+    }
+  });
+
+  contentElement.addEventListener("mouseout", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const bubble = target.closest(".md-comment");
+    if (bubble && !bubble.contains(event.relatedTarget)) {
+      clearAnchorHighlight();
+    }
+  });
+
+  contentElement.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      return;
+    }
+    const bubble = target.closest(".md-comment");
+    if (!bubble) {
+      return;
+    }
+    const id = bubble.getAttribute("data-comment-id") || "";
+
+    if (target.closest(".md-comment__edit")) {
+      event.preventDefault();
+      event.stopPropagation();
+      const bodyEl = bubble.querySelector(".md-comment__body");
+      const current = bodyEl ? bodyEl.textContent || "" : "";
+      openComposer({ mode: "edit", id, initialText: current, anchorRect: bubble.getBoundingClientRect() });
+      return;
+    }
+
+    if (target.closest(".md-comment__resolve")) {
+      event.preventDefault();
+      event.stopPropagation();
+      vscode.postMessage({ type: "deleteComment", id });
+      return;
+    }
+
+    // Clicking the bubble body reveals the marker in the text editor (if open).
+    vscode.postMessage({ type: "revealComment", id });
+  });
+
+  // Keep the count + view state in sync on every render.
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.type !== "render") {
+      return;
+    }
+    updateCommentCount(message.commentCount || 0);
+    clearAnchorHighlight();
   });
 
   vscode.postMessage({ type: "ready" });

@@ -21,7 +21,10 @@
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "test": "npm run compile && node --test test/**/*.test.js"
+    "test": "npm run test:unit",
+    "test:unit": "npm run compile && node --test test/**/*.test.js",
+    "test:integration": "npm run compile && vscode-test",
+    "test:ui": "npm run compile && extest setup-and-run \"./out/ui-test/**/*.test.js\" --code_version max --mocha_config .mocharc.js"
   },
   "contributes": {
     "customEditors": [
@@ -64,6 +67,18 @@
       {
         "command": "claudeMarkdownPreview.copyHtml",
         "title": "markdown-studio: Copy Rendered HTML"
+      },
+      {
+        "command": "claudeMarkdownPreview.sendToAgent",
+        "title": "markdown-studio: Send to Agent (snapshot for review)"
+      },
+      {
+        "command": "claudeMarkdownPreview.copyCommentsForChat",
+        "title": "markdown-studio: Copy Comments for Chat"
+      },
+      {
+        "command": "claudeMarkdownPreview.reviewChanges",
+        "title": "markdown-studio: Review Changes (diff vs. snapshot)"
       }
     ],
     "menus": {
@@ -142,7 +157,10 @@
           "description": "User-defined preview themes. Each theme is global CSS that overrides the preview's design tokens. Manage these from the Settings panel inside the preview (gear icon → Theme → Add new theme).",
           "items": {
             "type": "object",
-            "required": ["name", "css"],
+            "required": [
+              "name",
+              "css"
+            ],
             "properties": {
               "name": {
                 "type": "string",
@@ -169,14 +187,34 @@
           "type": "string",
           "default": "https://www.plantuml.com/plantuml",
           "description": "Base URL of the PlantUML server used to render diagrams (e.g. https://www.plantuml.com/plantuml). The server receives the encoded diagram text; requires network access."
+        },
+        "claudeMarkdownPreview.showComments": {
+          "type": "boolean",
+          "default": true,
+          "description": "Render inline review comments (<!-- @ms-comment:… --> markers) as bubbles in the preview. Turn off to hide them from the preview entirely."
+        },
+        "claudeMarkdownPreview.includeCommentsInExport": {
+          "type": "boolean",
+          "default": false,
+          "description": "Include inline comment bubbles when exporting to HTML. Off by default so exported files don't leak review notes."
+        },
+        "claudeMarkdownPreview.commentAuthor": {
+          "type": "string",
+          "default": "",
+          "description": "Optional author name appended to new comments as \" —Name\". Empty means no attribution."
         }
       }
     }
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.4.5"
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.0.0",
+    "mocha": "^11.7.6",
+    "typescript": "^5.4.5",
+    "vscode-extension-tester": "^8.23.0"
   },
   "dependencies": {
     "highlight.js": "^11.11.1",

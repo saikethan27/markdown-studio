@@ -515,3 +515,81 @@ test("plantuml fence falls back to code-block when enablePlantuml is false", () 
   // Must render as a normal code block
   assert.match(html, /<pre[^>]*class="code-block"[^>]*>/u);
 });
+
+// ── Inline comments (features/comments.md, Phase C0) ────────────────────────────
+
+test("@ms-comment marker renders an aside bubble with escaped text and data-line", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // Line 0: paragraph, Line 1: marker glued directly after it.
+  const html = renderMarkdown(createContext("Para text.\n<!-- @ms-comment:c1 Fix this -->\n"));
+
+  assert.match(html, /<aside class="md-comment" data-comment-id="c1"[^>]*data-line="1"/u);
+  assert.match(html, /<div class="md-comment__body">Fix this<\/div>/u);
+  // The preceding paragraph survives on its own line.
+  assert.match(html, /<p data-line="0">Para text\.<\/p>/u);
+  // The marker must NOT leak as raw escaped text (html:false consume requirement).
+  assert.doesNotMatch(html, /&lt;!-- @ms-comment/u);
+});
+
+test("comment text containing --> and quotes round-trips into the bubble", () => {
+  const { renderMarkdown } = loadRendererModule();
+  // The stored marker escapes --> as --&gt;; the renderer unescapes then HTML-escapes.
+  const html = renderMarkdown(createContext('Para.\n<!-- @ms-comment:c2 use --&gt; and "q" -->\n'));
+
+  assert.match(html, /class="md-comment"/u);
+  assert.match(html, /<div class="md-comment__body">use --&gt; and &quot;q&quot;<\/div>/u);
+});
+
+test("ordinary HTML comment without the prefix is left untouched", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(createContext("Text.\n\n<!-- just a normal comment -->\n\nMore.\n"));
+
+  assert.doesNotMatch(html, /md-comment/u);
+  // Under html:false it stays as (escaped) text, not a bubble.
+  assert.match(html, /&lt;!-- just a normal comment --&gt;/u);
+});
+
+test("@ms-comment-instructions block is consumed and never rendered", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const md = "Body para.\n\n<!-- @ms-comment-instructions\nApply the change.\nThen delete.\n-->\n";
+  const html = renderMarkdown(createContext(md));
+
+  assert.doesNotMatch(html, /ms-comment-instructions/u);
+  assert.doesNotMatch(html, /Apply the change\./u);
+  assert.doesNotMatch(html, /md-comment/u);
+  // The real body still renders.
+  assert.match(html, /Body para\./u);
+});
+
+test("showComments=false and export mode suppress the comment bubble", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const md = "Para.\n<!-- @ms-comment:c5 secret note -->\n";
+
+  assert.match(renderMarkdown(createContext(md)), /md-comment/u);
+  assert.doesNotMatch(renderMarkdown(createContext(md, { showComments: false })), /md-comment/u);
+  assert.doesNotMatch(renderMarkdown({ ...createContext(md), exportMode: true }), /md-comment/u);
+  assert.match(
+    renderMarkdown({ ...createContext(md, { includeCommentsInExport: true }), exportMode: true }),
+    /md-comment/u
+  );
+});
+
+test("an agent's [skipped: reason] trail is highlighted in the bubble", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("Para.\n<!-- @ms-comment:c9 do the thing  [skipped: unclear] -->\n")
+  );
+
+  assert.match(html, /<span class="md-comment-skipped">\[skipped: unclear\]<\/span>/u);
+});
+
+test("stacked consecutive markers render as separate bubbles", () => {
+  const { renderMarkdown } = loadRendererModule();
+  const html = renderMarkdown(
+    createContext("The block.\n<!-- @ms-comment:c1 first -->\n<!-- @ms-comment:c2 second -->\n")
+  );
+
+  assert.match(html, /data-comment-id="c1"[^>]*data-line="1"/u);
+  assert.match(html, /data-comment-id="c2"[^>]*data-line="2"/u);
+  assert.match(html, /<p data-line="0">The block\.<\/p>/u);
+});

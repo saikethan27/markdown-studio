@@ -3,6 +3,14 @@ import * as path from "node:path";
 import * as vscode from "vscode";
 import { CustomEditorProvider } from "./preview/CustomEditorProvider";
 import { PreviewPanel } from "./preview/PreviewPanel";
+import { buildChatDigest } from "./preview/comments";
+import {
+  SNAPSHOT_SCHEME,
+  hasSnapshot,
+  snapshotContentProvider,
+  snapshotUriFor,
+  takeSnapshot
+} from "./preview/commentReview";
 import { renderMarkdownForExport } from "./render/markdownRenderer";
 
 function isMarkdownDocument(document: vscode.TextDocument | undefined): document is vscode.TextDocument {
@@ -112,7 +120,9 @@ export function activate(context: vscode.ExtensionContext): void {
       enableFrontmatter: config.get<boolean>("enableFrontmatter", true),
       enableEmoji: config.get<boolean>("enableEmoji", true),
       enablePlantuml: config.get<boolean>("enablePlantuml", false),
-      plantumlServerUrl: config.get<string>("plantumlServerUrl", "https://www.plantuml.com/plantuml")
+      plantumlServerUrl: config.get<string>("plantumlServerUrl", "https://www.plantuml.com/plantuml"),
+      showComments: config.get<boolean>("showComments", true),
+      includeCommentsInExport: config.get<boolean>("includeCommentsInExport", false)
     };
 
     const contentHtml = renderMarkdownForExport({
@@ -208,6 +218,85 @@ ${contentHtml}
     void vscode.window.showInformationMessage("markdown-studio: rendered HTML copied to clipboard.");
   });
 
+  // ── Inline comments: agent handoff & review loop (features/comments.md C5) ────
+
+  const snapshotProviderRegistration = vscode.workspace.registerTextDocumentContentProvider(
+    SNAPSHOT_SCHEME,
+    snapshotContentProvider
+  );
+
+  const REVIEW_ACTION = "Review changes";
+
+  // Freeze the current text as the "before" anchor for a later diff review.
+  const sendToAgentCommand = vscode.commands.registerCommand("claudeMarkdownPreview.sendToAgent", async () => {
+    const target = resolveActiveTarget();
+    if (!target) {
+      void vscode.window.showInformationMessage("markdown-studio: open a markdown-studio preview first.");
+      return;
+    }
+
+    takeSnapshot(target.document);
+    const choice = await vscode.window.showInformationMessage(
+      "markdown-studio: snapshot saved. Comments travel in the file — run your agent, then Review changes.",
+      REVIEW_ACTION
+    );
+    if (choice === REVIEW_ACTION) {
+      await vscode.commands.executeCommand("claudeMarkdownPreview.reviewChanges");
+    }
+  });
+
+  // Build a paste-ready prompt for chat-only tools and copy it to the clipboard.
+  const copyForChatCommand = vscode.commands.registerCommand(
+    "claudeMarkdownPreview.copyCommentsForChat",
+    async () => {
+      const target = resolveActiveTarget();
+      if (!target) {
+        void vscode.window.showInformationMessage("markdown-studio: open a markdown-studio preview first.");
+        return;
+      }
+
+      const digest = buildChatDigest(target.document);
+      if (!digest) {
+        void vscode.window.showInformationMessage("markdown-studio: no comments to copy — add a comment first.");
+        return;
+      }
+
+      // Copying for chat is also a "send" — freeze the before-state for review.
+      takeSnapshot(target.document);
+      await vscode.env.clipboard.writeText(digest);
+      const choice = await vscode.window.showInformationMessage(
+        "markdown-studio: comment prompt copied. Paste it into your chat tool, then Review changes.",
+        REVIEW_ACTION
+      );
+      if (choice === REVIEW_ACTION) {
+        await vscode.commands.executeCommand("claudeMarkdownPreview.reviewChanges");
+      }
+    }
+  );
+
+  // Open VS Code's native diff: frozen snapshot (before) vs. the live file (after).
+  const reviewChangesCommand = vscode.commands.registerCommand(
+    "claudeMarkdownPreview.reviewChanges",
+    async () => {
+      const target = resolveActiveTarget();
+      if (!target) {
+        void vscode.window.showInformationMessage("markdown-studio: open a markdown-studio preview first.");
+        return;
+      }
+
+      const fileUri = target.document.uri;
+      if (!hasSnapshot(fileUri)) {
+        void vscode.window.showInformationMessage(
+          "markdown-studio: no snapshot yet — use \"Send to agent\" or \"Copy for chat\" first to set the before-state."
+        );
+        return;
+      }
+
+      const title = `Agent changes: ${path.basename(target.document.fileName)}`;
+      await vscode.commands.executeCommand("vscode.diff", snapshotUriFor(fileUri), fileUri, title);
+    }
+  );
+
   const textDocumentChangeSubscription = vscode.workspace.onDidChangeTextDocument((event) => {
     PreviewPanel.current?.handleTextDocumentChange(event.document);
   });
@@ -254,6 +343,10 @@ ${contentHtml}
     exportHtmlCommand,
     exportPdfCommand,
     copyHtmlCommand,
+    sendToAgentCommand,
+    copyForChatCommand,
+    reviewChangesCommand,
+    snapshotProviderRegistration,
     textDocumentChangeSubscription,
     activeEditorChangeSubscription,
     themeChangeSubscription,

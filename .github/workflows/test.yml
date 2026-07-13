@@ -1,0 +1,67 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 3 * * *" # nightly full UI run
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+  integration:
+    needs: unit
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run compile
+      - name: Run integration tests (Linux, headless)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a npm run test:integration
+      - name: Run integration tests (Windows / macOS)
+        if: runner.os != 'Linux'
+        run: npm run test:integration
+
+  ui:
+    needs: integration
+    if: github.event_name != 'push' # PRs and nightly only — UI tests are slow
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Cache ExTester VS Code + chromedriver
+        uses: actions/cache@v4
+        with:
+          path: test-resources
+          key: extester-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Run UI tests (headless)
+        run: xvfb-run -a npm run test:ui
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-screenshots
+          path: test-resources/screenshots
