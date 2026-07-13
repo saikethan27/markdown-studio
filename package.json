@@ -2,7 +2,7 @@
   "name": "markdown-studio",
   "displayName": "markdown-studio",
   "description": "Preview Markdown files in a Markdown Studio webview experience.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "saikethan",
   "icon": "media/extension-icon.png",
   "engines": {
@@ -210,9 +210,9 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.30",
     "@types/vscode": "^1.85.0",
-    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^3.0.0",
-    "mocha": "^11.7.6",
+    "mocha": "^11.3.0",
     "typescript": "^5.4.5",
     "vscode-extension-tester": "^8.23.0"
   },
