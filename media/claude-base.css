@@ -66,7 +66,7 @@ body {
 .preview-header {
   background: var(--card);
   border-bottom: var(--border-width) solid var(--border);
-  padding: 0 var(--space-block);
+  padding: 0 var(--space-4);
   height: 2.75rem;
   display: flex;
   align-items: center;
@@ -211,7 +211,7 @@ body {
   overflow-y: auto;
   border-right: var(--border-width) solid var(--border);
   background: var(--card);
-  padding: var(--space-block) 0;
+  padding: var(--space-4) 0;
   position: sticky;
   top: 2.75rem;
   height: calc(100vh - 2.75rem);
@@ -307,7 +307,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: var(--space-block);
+  padding: var(--space-4);
   border-bottom: var(--border-width) solid var(--border);
 }
 
@@ -345,10 +345,10 @@ body {
 }
 
 .settings-panel-body {
-  padding: var(--space-block);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-section);
+  gap: var(--space-6);
 }
 
 .setting-separator {
@@ -360,13 +360,13 @@ body {
 .setting-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-block);
+  gap: var(--space-4);
 }
 
 .setting-block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-paragraph);
+  gap: var(--space-3);
 }
 
 .setting-item__text {
@@ -378,7 +378,7 @@ body {
   font-size: var(--text-body);
   font-weight: var(--weight-semibold);
   color: var(--foreground);
-  margin-bottom: calc(var(--space-paragraph) / 2);
+  margin-bottom: var(--space-1-5);
 }
 
 .setting-item__desc {
@@ -463,7 +463,7 @@ body {
   display: none;
   align-items: center;
   justify-content: center;
-  padding: var(--space-section);
+  padding: var(--space-6);
   background: var(--lightbox-backdrop);
 }
 
@@ -489,7 +489,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  padding: var(--space-block);
+  padding: var(--space-4);
   border-bottom: var(--border-width) solid var(--border);
   flex-shrink: 0;
 }
@@ -503,8 +503,8 @@ body {
 .theme-modal__body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-block);
-  padding: var(--space-block);
+  gap: var(--space-4);
+  padding: var(--space-4);
   overflow-y: auto;
 }
 
@@ -512,7 +512,7 @@ body {
   display: flex;
   gap: 0.5rem;
   justify-content: flex-end;
-  padding: var(--space-block);
+  padding: var(--space-4);
   border-top: var(--border-width) solid var(--border);
   flex-shrink: 0;
 }
@@ -520,7 +520,7 @@ body {
 .setting-field {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--space-paragraph) / 2);
+  gap: var(--space-1-5);
 }
 
 .setting-field__label {
@@ -575,7 +575,7 @@ body {
 .theme-example {
   display: flex;
   flex-direction: column;
-  gap: var(--space-paragraph);
+  gap: var(--space-3);
 }
 
 .theme-example__title {
@@ -586,7 +586,7 @@ body {
 
 .theme-example__code {
   margin: 0;
-  padding: var(--space-block);
+  padding: var(--space-4);
   background: var(--hl-bg);
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius);
@@ -956,11 +956,11 @@ body.comments-hidden .md-comment {
   }
 
   .preview-main {
-    padding: var(--space-paragraph);
+    padding: var(--space-3);
   }
 
   .preview-content {
-    padding: var(--space-block);
+    padding: var(--space-4);
   }
 }
 
@@ -968,7 +968,7 @@ body.comments-hidden .md-comment {
 @media (max-width: 520px) {
   .preview-header {
     gap: 0.25rem;
-    padding: 0 var(--space-paragraph);
+    padding: 0 var(--space-3);
   }
 
   /* Drop the document meta (word count) when space is tight. */
@@ -986,8 +986,8 @@ body.comments-hidden .md-comment {
 /* ── Large / ultra-wide screens: let wide content breathe ── */
 @media (min-width: 1600px) {
   .preview-main {
-    padding-top: var(--space-section);
-    padding-bottom: var(--space-section);
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-6);
   }
 }
 

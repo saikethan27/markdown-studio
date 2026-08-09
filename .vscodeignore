@@ -1,3 +1,5 @@
+# Only dist/ (the esbuild bundle), media/ and the manifest ship.
+
 # Test tooling & sources — keep them out of the published .vsix.
 .github/**
 .vscode/**
@@ -7,13 +9,32 @@
 test/**
 test-resources/**
 src/**
-out/test/**
-out/ui-test/**
-out/**/*.test.js
-out/**/*.test.js.map
-out/**/*.map
 tsconfig.json
+esbuild.js
 **/*.ts
 features/**
 html_example_demo/**
+
+# tsc output. It exists for type checking and the test build; the shipped code
+# is the bundle in dist/.
+out/**
+
+# Bundle sourcemaps are a dev aid only.
+dist/**/*.map
+
+# vsce packages `dependencies` only, and highlight.js is the sole runtime one
+# (see the "//dependencies" note in package.json). Everything else is bundled
+# into dist/ or vendored into media/. Trim the parts of highlight.js the
+# extension never loads: it requires CommonJS grammars out of lib/ only.
+node_modules/highlight.js/es/**
+node_modules/highlight.js/styles/**
+node_modules/highlight.js/scss/**
+node_modules/highlight.js/types/**
+
+# Oversized unused images (the manifest icon is media/extension-icon.png).
 Gemini_Generated_Image_*.png
+icon.png
+logo.png
+
+# Never ship previously built packages.
+*.vsix

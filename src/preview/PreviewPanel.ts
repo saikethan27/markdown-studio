@@ -1,18 +1,32 @@
 ﻿import * as fs from "node:fs";
 import * as path from "node:path";
 import * as vscode from "vscode";
-import { renderMarkdown, type RendererSettings } from "../render/markdownRenderer";
+import type { RendererSettings } from "../render/markdownRenderer";
+import { renderMarkdown } from "../render/lazyRenderer";
 import { addComment, deleteComment, listComments, updateComment, updateCommentConfig } from "./comments";
 import { isDefaultMarkdownEditor, setDefaultMarkdownEditor } from "./defaultEditor";
 import { SETTINGS_PANEL_HTML, THEME_MODAL_HTML } from "./settingsPanel";
+import { katexCssPath, mermaidScriptPath } from "./vendorAssets";
 import {
   getActiveCustomThemeCss,
   getActiveThemeStyle,
+  getActivePalette,
+  getPaletteOptions,
+  setActivePalette,
+  type ThemeStyle,
   getThemeOptions,
   getActiveThemeId,
   saveCustomTheme,
   setActiveTheme
 } from "./themes";
+
+/** Short badge shown in the preview header for each built-in theme style. */
+const THEME_BADGES: Record<ThemeStyle, string> = {
+  claude: "CL",
+  github: "GH",
+  ergoread: "ER",
+  executive: "EX"
+};
 
 const PANEL_VIEW_TYPE = "claudeMarkdownPreview.preview";
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
@@ -21,7 +35,8 @@ interface RenderPayload {
   type: "render";
   html: string;
   theme: "light" | "dark";
-  themeStyle: "claude" | "github";
+  themeStyle: ThemeStyle;
+  palette: string;
   customThemeCss: string;
   title: string;
   wordCount: number;
@@ -61,6 +76,11 @@ interface SetDefaultEditorMessage {
 interface SetThemeMessage {
   type: "setTheme";
   themeId: string;
+}
+
+interface SetPaletteMessage {
+  type: "setPalette";
+  paletteId: string;
 }
 
 interface SaveThemeMessage {
@@ -105,6 +125,7 @@ type IncomingWebviewMessage =
   | RequestSettingsMessage
   | SetDefaultEditorMessage
   | SetThemeMessage
+  | SetPaletteMessage
   | SaveThemeMessage
   | AddCommentMessage
   | UpdateCommentMessage
@@ -202,8 +223,20 @@ export class PreviewPanel {
         this.postSettingsState();
         this.scheduleRender();
       }
+      // The mermaid <script> is baked into the webview HTML, so toggling the
+      // setting has to rebuild the document rather than just re-render.
+      if (event.affectsConfiguration("claudeMarkdownPreview.enableMermaid")) {
+        this.reloadWebview();
+      }
     }, null, this.disposables);
 
+    this.scheduleRender();
+  }
+
+  /** Rebuild the webview document and re-render into it once it reports ready. */
+  private reloadWebview(): void {
+    this.isReady = false;
+    this.panel.webview.html = this.getWebviewHtml();
     this.scheduleRender();
   }
 
@@ -215,6 +248,8 @@ export class PreviewPanel {
       isDefaultEditor: isDefaultMarkdownEditor(),
       themes: getThemeOptions(),
       activeTheme: getActiveThemeId(),
+      palettes: getPaletteOptions(),
+      activePalette: getActivePalette(),
       showComments: config.get<boolean>("showComments", true),
       includeCommentsInExport: config.get<boolean>("includeCommentsInExport", false),
       commentAuthor: config.get<string>("commentAuthor", "")
@@ -310,6 +345,7 @@ export class PreviewPanel {
     const title = path.basename(this.currentDocument.fileName);
     const theme = this.getThemeKind();
     const themeStyle = this.getThemeStyle();
+    const palette = getActivePalette(themeStyle);
     const docText = this.currentDocument.getText();
     const html = renderMarkdown({
       document: this.currentDocument,
@@ -329,6 +365,7 @@ export class PreviewPanel {
       html,
       theme,
       themeStyle,
+      palette,
       customThemeCss: getActiveCustomThemeCss(),
       title,
       wordCount,
@@ -356,7 +393,7 @@ export class PreviewPanel {
     return isDark ? "dark" : "light";
   }
 
-  private getThemeStyle(): "claude" | "github" {
+  private getThemeStyle(): ThemeStyle {
     return getActiveThemeStyle();
   }
 
@@ -396,6 +433,13 @@ export class PreviewPanel {
 
     if (message.type === "setTheme") {
       await setActiveTheme(message.themeId);
+      this.scheduleRender();
+      this.postSettingsState();
+      return;
+    }
+
+    if (message.type === "setPalette") {
+      await setActivePalette(message.paletteId);
       this.scheduleRender();
       this.postSettingsState();
       return;
@@ -557,6 +601,7 @@ export class PreviewPanel {
     const nonce = createNonce();
     const initialTheme = this.getThemeKind();
     const initialThemeStyle = this.getThemeStyle();
+    const initialPalette = getActivePalette(initialThemeStyle);
 
     const themeCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "theme.css"));
     const baseCssUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "claude-base.css"));
@@ -565,27 +610,17 @@ export class PreviewPanel {
     );
     const previewScriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, "media", "preview.js"));
 
-    const katexCssFsPath = vscode.Uri.joinPath(
-      this.context.extensionUri,
-      "node_modules",
-      "katex",
-      "dist",
-      "katex.min.css"
-    ).fsPath;
-
-    const mermaidScriptFsPath = vscode.Uri.joinPath(
-      this.context.extensionUri,
-      "node_modules",
-      "mermaid",
-      "dist",
-      "mermaid.min.js"
-    ).fsPath;
-
-    const katexCssLink = fs.existsSync(katexCssFsPath)
+    const katexCssFsPath = katexCssPath(this.context.extensionUri);
+    const katexCssLink = katexCssFsPath
       ? `<link rel="stylesheet" href="${webview.asWebviewUri(vscode.Uri.file(katexCssFsPath))}">`
       : "";
 
-    const mermaidScriptTag = fs.existsSync(mermaidScriptFsPath)
+    // mermaid.min.js is ~3.5MB. Only ship it to the webview when the feature is
+    // actually on — otherwise every preview pays to download and parse it.
+    const mermaidScriptFsPath = this.getRendererSettings().enableMermaid
+      ? mermaidScriptPath(this.context.extensionUri)
+      : undefined;
+    const mermaidScriptTag = mermaidScriptFsPath
       ? `<script nonce="${nonce}" src="${webview.asWebviewUri(vscode.Uri.file(mermaidScriptFsPath))}"></script>`
       : "";
 
@@ -602,8 +637,9 @@ export class PreviewPanel {
 
     const initialBodyClass = [
       initialTheme === "dark" ? "theme-dark" : "theme-light",
-      initialThemeStyle === "github" ? "theme-style-github" : "theme-style-claude"
-    ].join(" ");
+      `theme-style-${initialThemeStyle}`,
+      initialPalette ? `theme-palette-${initialPalette}` : ""
+    ].filter(Boolean).join(" ");
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -626,7 +662,7 @@ export class PreviewPanel {
       <span class="doc-meta" id="docMeta"></span>
       <div class="header-controls" aria-label="Appearance controls">
         <button class="ctrl-btn" id="themeStyleBtn" type="button"
-          title="Theme style (change in settings)" aria-label="Theme style">${initialThemeStyle === "github" ? "GH" : "CL"}</button>
+          title="Theme style (change in settings)" aria-label="Theme style">${THEME_BADGES[initialThemeStyle]}</button>
         <div class="ctrl-separator" role="separator"></div>
         <button class="ctrl-btn" id="zoomOut" type="button" title="Zoom out (Ctrl+-)" aria-label="Zoom out">A&#8209;</button>
         <button class="ctrl-btn" id="zoomReset" type="button" title="Reset zoom (Ctrl+0)" aria-label="Reset zoom">16px</button>
@@ -670,6 +706,7 @@ function isIncomingMessage(value: unknown): value is IncomingWebviewMessage {
     candidate.type === "requestSettings" ||
     candidate.type === "setDefaultEditor" ||
     candidate.type === "setTheme" ||
+    candidate.type === "setPalette" ||
     candidate.type === "saveTheme" ||
     candidate.type === "addComment" ||
     candidate.type === "updateComment" ||

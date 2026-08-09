@@ -269,19 +269,37 @@
   }
 
   // ── Theme ─────────────────────────────────────────────────────────────────
-  function applyTheme(theme, themeStyle) {
+  const THEME_STYLES = ["claude", "github", "ergoread", "executive"];
+  const THEME_BADGES = {
+    claude: { badge: "CL", label: "Claude" },
+    github: { badge: "GH", label: "GitHub" },
+    ergoread: { badge: "ER", label: "ErgoRead" },
+    executive: { badge: "EX", label: "Executive" }
+  };
+  // Every palette id across all styles — removed wholesale before re-applying,
+  // so switching styles can never leave a stale palette class behind.
+  const THEME_PALETTES = ["warm", "cool", "neutral", "cursor", "slate", "graphite"];
+
+  function applyTheme(theme, themeStyle, palette) {
     body.classList.remove("theme-light", "theme-dark");
     body.classList.add(theme === "dark" ? "theme-dark" : "theme-light");
 
-    body.classList.remove("theme-style-claude", "theme-style-github");
-    body.classList.add(themeStyle === "github" ? "theme-style-github" : "theme-style-claude");
+    const style = THEME_STYLES.indexOf(themeStyle) >= 0 ? themeStyle : "claude";
+    THEME_STYLES.forEach((id) => body.classList.remove("theme-style-" + id));
+    body.classList.add("theme-style-" + style);
 
-    // Reflect current style on the theme toggle button if present.
+    THEME_PALETTES.forEach((id) => body.classList.remove("theme-palette-" + id));
+    if (palette && THEME_PALETTES.indexOf(palette) >= 0) {
+      body.classList.add("theme-palette-" + palette);
+    }
+
+    // Reflect current style on the theme badge if present.
     const themeBtn = document.getElementById("themeStyleBtn");
     if (themeBtn) {
-      themeBtn.textContent = themeStyle === "github" ? "GH" : "CL";
-      themeBtn.title = themeStyle === "github" ? "Theme: GitHub (click to switch)" : "Theme: Claude (click to switch)";
-      themeBtn.classList.toggle("ctrl-btn--active", themeStyle === "github");
+      const meta = THEME_BADGES[style];
+      themeBtn.textContent = meta.badge;
+      themeBtn.title = "Theme: " + meta.label + " (change in settings)";
+      themeBtn.classList.toggle("ctrl-btn--active", style !== "claude");
     }
   }
 
@@ -756,6 +774,48 @@
     themeSelect.appendChild(addOption);
 
     themeSelect.value = lastActiveTheme;
+  }
+
+  // Surface palettes exist only for themes that ship more than one (ErgoRead,
+  // Executive). For the rest the whole block stays hidden.
+  function populatePalettes(palettes, activePalette) {
+    const block = document.getElementById("paletteBlock");
+    const select = document.getElementById("paletteSelect");
+    const desc = document.getElementById("paletteDesc");
+    if (!block || !select) {
+      return;
+    }
+
+    const options = palettes || [];
+    if (options.length === 0) {
+      block.hidden = true;
+      select.innerHTML = "";
+      return;
+    }
+
+    block.hidden = false;
+    select.innerHTML = "";
+    options.forEach((palette) => {
+      const option = document.createElement("option");
+      option.value = palette.id;
+      option.textContent = palette.label;
+      option.title = palette.description || "";
+      select.appendChild(option);
+    });
+
+    select.value = activePalette || options[0].id;
+
+    if (desc) {
+      const match = options.filter((p) => p.id === select.value)[0];
+      desc.textContent = match && match.description ? match.description : "";
+    }
+  }
+
+  const paletteSelect = document.getElementById("paletteSelect");
+  if (paletteSelect) {
+    paletteSelect.addEventListener("change", () => {
+      vscode.postMessage({ type: "setPalette", paletteId: paletteSelect.value });
+    });
   }
 
   if (themeSelect) {
@@ -1402,6 +1462,7 @@
     if (message.type === "settingsState") {
       applyDefaultEditorState(message.isDefaultEditor === true);
       populateThemes(message.themes, message.activeTheme);
+      populatePalettes(message.palettes, message.activePalette);
       applyCommentSettings(message);
       return;
     }
@@ -1423,7 +1484,7 @@
       }
     }
 
-    applyTheme(message.theme, message.themeStyle);
+    applyTheme(message.theme, message.themeStyle, message.palette);
     applyCustomThemeCss(message.customThemeCss);
     // Re-apply zoom and width after each render (body class changes don't affect
     // inline custom properties we set on :root, but call to keep display in sync).

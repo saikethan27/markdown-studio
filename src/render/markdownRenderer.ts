@@ -1,12 +1,12 @@
 import * as path from "node:path";
 import * as zlib from "node:zlib";
 import * as vscode from "vscode";
-import hljs from "highlight.js";
 import MarkdownIt from "markdown-it";
 import markdownItFootnote from "markdown-it-footnote";
 import markdownItKatex from "markdown-it-katex";
 import markdownItTaskLists from "markdown-it-task-lists";
 import { full as markdownItEmoji } from "markdown-it-emoji";
+import { ensureLanguage, highlight as highlightCode } from "./highlighter";
 
 const MARKDOWN_EXTENSIONS = new Set([".md", ".markdown"]);
 
@@ -159,9 +159,51 @@ export function renderMarkdown(context: RenderContext): string {
     frontmatterLineOffset = fm.frontmatterLineOffset;
   }
 
-  const markdown = createMarkdownRenderer(context, frontmatterLineOffset);
+  const markdown = getMarkdownRenderer(context, frontmatterLineOffset);
   const bodyHtml = markdown.render(source);
   return frontmatterHtml + bodyHtml;
+}
+
+/**
+ * Per-render inputs the markdown-it rules read. Held in a mutable box so a
+ * single MarkdownIt instance can be reused across renders — building one costs
+ * far more than a render does, and `renderMarkdown` runs on every debounced
+ * keystroke, not just on open.
+ */
+interface RenderState {
+  context: RenderContext;
+  frontmatterLineOffset: number;
+}
+
+let cachedRenderer: { markdown: any; current: RenderState; key: string } | undefined;
+
+/**
+ * Settings that decide which plugins get registered. Everything else is read
+ * per-render off `RenderState`, so only these force a rebuild.
+ */
+function pluginKey(settings: RendererSettings): string {
+  return [
+    settings.enableTaskLists,
+    settings.enableFootnotes,
+    settings.enableMath,
+    settings.enableEmoji
+  ]
+    .map((enabled) => (enabled ? "1" : "0"))
+    .join("");
+}
+
+function getMarkdownRenderer(context: RenderContext, frontmatterLineOffset: number): any {
+  const key = pluginKey(context.settings);
+
+  if (cachedRenderer && cachedRenderer.key === key) {
+    cachedRenderer.current.context = context;
+    cachedRenderer.current.frontmatterLineOffset = frontmatterLineOffset;
+    return cachedRenderer.markdown;
+  }
+
+  const current: RenderState = { context, frontmatterLineOffset };
+  cachedRenderer = { markdown: createMarkdownRenderer(current), current, key };
+  return cachedRenderer.markdown;
 }
 
 /**
@@ -252,16 +294,19 @@ function slugify(text: string): string {
     .replace(/^-|-$/gu, "");     // trim leading/trailing hyphens
 }
 
-function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 0): any {
+// NOTE: the box is named `current`, not `state` — markdown-it passes its own
+// `state` object to every core rule, and a shadowed name silently reads the
+// wrong object (data-line offsets become NaN).
+function createMarkdownRenderer(current: RenderState): any {
   const markdown = new MarkdownIt({
     html: false,
     linkify: true,
     typographer: true,
     highlight: (code: string, language: string) =>
-      renderCodeBlock(code, language, context.settings.showLineNumbers)
+      renderCodeBlock(code, language, current.context.settings.showLineNumbers)
   });
 
-  if (context.settings.enableTaskLists) {
+  if (current.context.settings.enableTaskLists) {
     markdown.use(markdownItTaskLists as any, {
       enabled: true,
       label: true,
@@ -269,16 +314,16 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
     });
   }
 
-  if (context.settings.enableFootnotes) {
+  if (current.context.settings.enableFootnotes) {
     markdown.use(markdownItFootnote as any);
   }
 
-  if (context.settings.enableMath) {
+  if (current.context.settings.enableMath) {
     markdown.use(markdownItKatex as any);
   }
 
   // Feature 4: Emoji shortcodes
-  if (context.settings.enableEmoji) {
+  if (current.context.settings.enableEmoji) {
     markdown.use(markdownItEmoji as any);
   }
 
@@ -394,12 +439,12 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   // hidden, or in export mode unless explicitly included.
   markdown.renderer.rules.ms_comment = (tokens: any[], index: number) => {
     const token = tokens[index];
-    const showComments = context.settings.showComments !== false;
-    const includeInExport = context.settings.includeCommentsInExport === true;
+    const showComments = current.context.settings.showComments !== false;
+    const includeInExport = current.context.settings.includeCommentsInExport === true;
     if (!showComments) {
       return "";
     }
-    if (context.exportMode && !includeInExport) {
+    if (current.context.exportMode && !includeInExport) {
       return "";
     }
 
@@ -431,7 +476,7 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   markdown.core.ruler.push("source_line", (state: any) => {
     for (const token of state.tokens) {
       if (token.map && token.map[0] != null) {
-        token.attrSet("data-line", String(token.map[0] + frontmatterLineOffset));
+        token.attrSet("data-line", String(token.map[0] + current.frontmatterLineOffset));
       }
     }
   });
@@ -603,15 +648,15 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   ) => {
     const token = tokens[index];
     const language = getFenceLanguage(token.info);
-    const lineNum = token.map != null ? token.map[0] + frontmatterLineOffset : null;
+    const lineNum = token.map != null ? token.map[0] + current.frontmatterLineOffset : null;
     const lineAttr = lineNum != null ? ` data-line="${lineNum}"` : "";
 
-    if (context.settings.enableMermaid && language === "mermaid") {
+    if (current.context.settings.enableMermaid && language === "mermaid") {
       return `<div class="mermaid"${lineAttr}>${escapeHtml(token.content)}</div>`;
     }
 
-    if (context.settings.enablePlantuml && (language === "plantuml" || language === "puml")) {
-      const serverUrl = (context.settings.plantumlServerUrl || "https://www.plantuml.com/plantuml").replace(/\/+$/u, "");
+    if (current.context.settings.enablePlantuml && (language === "plantuml" || language === "puml")) {
+      const serverUrl = (current.context.settings.plantumlServerUrl || "https://www.plantuml.com/plantuml").replace(/\/+$/u, "");
       const encoded = encodePlantuml(token.content);
       return `<img class="plantuml-diagram" loading="lazy"${lineAttr} src="${escapeHtml(serverUrl)}/svg/${encoded}" alt="PlantUML diagram">`;
     }
@@ -640,7 +685,7 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   ) => {
     const token = tokens[index];
     const originalSource = token.attrGet("src") ?? "";
-    const rewrittenSource = rewriteImageSource(originalSource, context);
+    const rewrittenSource = rewriteImageSource(originalSource, current.context);
 
     token.attrSet("src", rewrittenSource);
     token.attrSet("loading", "lazy");
@@ -662,11 +707,11 @@ function createMarkdownRenderer(context: RenderContext, frontmatterLineOffset = 
   ) => {
     const token = tokens[index];
     const originalHref = token.attrGet("href") ?? "";
-    const rewrittenLink = rewriteLinkHref(originalHref, context);
+    const rewrittenLink = rewriteLinkHref(originalHref, current.context);
 
     token.attrSet("href", rewrittenLink.href);
     token.attrSet("data-original-href", originalHref);
-    token.attrSet("data-source-doc", context.document.uri.toString());
+    token.attrSet("data-source-doc", current.context.document.uri.toString());
     token.attrSet("data-link-kind", rewrittenLink.kind);
 
     if (rewrittenLink.kind === "external") {
@@ -872,11 +917,8 @@ function renderCodeBlock(code: string, language: string, showLineNumbers = false
     `</div>`
   ].join("");
 
-  if (normalizedLanguage && hljs.getLanguage(normalizedLanguage)) {
-    const highlighted = hljs.highlight(code, {
-      language: normalizedLanguage,
-      ignoreIllegals: true
-    }).value;
+  if (normalizedLanguage && ensureLanguage(normalizedLanguage)) {
+    const highlighted = highlightCode(code, normalizedLanguage);
 
     const codeEl = `<code class="hljs language-${normalizedLanguage}">${highlighted}</code>`;
 

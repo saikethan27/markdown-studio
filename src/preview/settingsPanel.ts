@@ -67,6 +67,14 @@ export const SETTINGS_PANEL_HTML = `<aside class="settings-sidebar" id="settings
             <select class="setting-select" id="themeSelect" aria-label="Preview theme"></select>
           </div>
 
+          <!-- Shown only for themes that ship more than one surface palette
+               (ErgoRead, Executive); hidden entirely for Claude and GitHub. -->
+          <div class="setting-block" id="paletteBlock" hidden>
+            <div class="setting-item__label">Surface palette</div>
+            <div class="setting-item__desc" id="paletteDesc">Same typography, spacing and contrast — only the surface colour changes.</div>
+            <select class="setting-select" id="paletteSelect" aria-label="Surface palette"></select>
+          </div>
+
           <div class="setting-separator" role="separator"></div>
 
           <div class="setting-item">

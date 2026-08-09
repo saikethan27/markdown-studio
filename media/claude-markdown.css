@@ -27,11 +27,13 @@
 .claude-ui-styled h4,
 .claude-ui-styled h5,
 .claude-ui-styled h6 {
-  color: var(--foreground);
+  /* Themes that distinguish headings from body text set --heading; the rest
+     fall back to the body foreground. */
+  color: var(--heading, var(--foreground));
   font-weight: var(--weight-semibold);
   line-height: var(--leading-heading);
   margin-top: var(--space-section);
-  margin-bottom: var(--space-paragraph);
+  margin-bottom: var(--space-heading);
   letter-spacing: var(--letter-spacing-heading);
 }
 
@@ -98,10 +100,10 @@
 .claude-ui-styled code:not(pre code) {
   background: var(--muted);
   border: var(--border-width) solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-xs);
   font-family: var(--font-mono);
   font-size: var(--text-code);
-  padding: 0.125rem 0.375rem;
+  padding: var(--pad-code-inline);
   color: var(--foreground);
   overflow-wrap: anywhere;
 }
@@ -267,7 +269,7 @@
   border: none;
   border-radius: 0;
   font-family: var(--font-mono);
-  font-size: var(--text-small);
+  font-size: var(--text-code-block);
   line-height: var(--leading-code);
   padding: 0;
   color: var(--card-foreground);
@@ -278,7 +280,7 @@
 .claude-styled ol,
 .claude-ui-styled ul,
 .claude-ui-styled ol {
-  padding-left: var(--space-section);
+  padding-left: var(--indent-list);
   margin: var(--space-paragraph) 0;
 }
 
@@ -300,13 +302,13 @@
 .claude-ui-styled ol ol,
 .claude-ui-styled ul ol,
 .claude-ui-styled ol ul {
-  margin: 0.25rem 0;
+  margin: var(--space-list-item) 0;
 }
 
 .claude-styled li,
 .claude-ui-styled li {
-  margin: 0.375rem 0;
-  line-height: var(--leading-code);
+  margin: 0 0 var(--space-list-item);
+  line-height: var(--leading-body);
 }
 
 .claude-styled li::marker,
@@ -316,9 +318,9 @@
 
 .claude-styled blockquote,
 .claude-ui-styled blockquote {
-  border-left: 3px solid var(--primary);
+  border-left: var(--border-quote) solid var(--primary);
   background: var(--muted);
-  padding: var(--space-paragraph) var(--space-block);
+  padding: var(--space-heading) var(--pad-quote);
   margin: var(--space-block) 0;
   border-radius: 0 var(--radius) var(--radius) 0;
 }
@@ -368,13 +370,13 @@
   color: var(--foreground);
   font-weight: var(--weight-semibold);
   text-align: left;
-  padding: 0.625rem 0.875rem;
+  padding: var(--pad-cell);
   border-bottom: var(--border-width) solid var(--border);
 }
 
 .claude-styled td,
 .claude-ui-styled td {
-  padding: 0.625rem 0.875rem;
+  padding: var(--pad-cell);
   border-bottom: var(--border-width) solid var(--border);
   color: var(--foreground);
 }
@@ -983,3 +985,90 @@
   min-height: 0;
 }
 
+
+/* ============================================================
+   EXECUTIVE THEME — presentation treatment
+   ------------------------------------------------------------
+   Colour comes from the tokens in theme.css; these rules add the structural
+   difference that makes the system read as "presentation" rather than "prose":
+   elevated surfaces, crisp definition, and a display-weight heading scale.
+   Everything is scoped to the theme, so no other theme is affected.
+   ============================================================ */
+
+body.theme-style-executive .claude-styled h1,
+body.theme-style-executive .claude-ui-styled h1,
+body.theme-style-executive .claude-styled h2,
+body.theme-style-executive .claude-ui-styled h2 {
+  font-weight: var(--weight-bold);
+  letter-spacing: -0.02em;
+}
+
+body.theme-style-executive .claude-styled h1,
+body.theme-style-executive .claude-ui-styled h1 {
+  font-size: calc(var(--text-h1) * 1.15);
+  padding-bottom: var(--space-heading);
+  border-bottom: 0;
+  position: relative;
+}
+
+/* The blue-to-violet rule under the page title — the theme's signature. */
+body.theme-style-executive .claude-styled h1::after,
+body.theme-style-executive .claude-ui-styled h1::after {
+  content: "";
+  display: block;
+  width: 84px;
+  height: var(--space-1);
+  margin-top: var(--space-heading);
+  border-radius: 999px;
+  background: var(--rule-accent);
+}
+
+body.theme-style-executive .claude-styled pre,
+body.theme-style-executive .claude-ui-styled pre,
+body.theme-style-executive .claude-styled table,
+body.theme-style-executive .claude-ui-styled table {
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05), 0 6px 18px rgb(0 0 0 / 0.07);
+}
+
+body.theme-dark.theme-style-executive .claude-styled pre,
+body.theme-dark.theme-style-executive .claude-ui-styled pre,
+body.theme-dark.theme-style-executive .claude-styled table,
+body.theme-dark.theme-style-executive .claude-ui-styled table {
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.035) inset, 0 8px 22px rgb(0 0 0 / 0.38);
+}
+
+body.theme-style-executive .claude-styled table,
+body.theme-style-executive .claude-ui-styled table {
+  overflow: hidden;
+  border: var(--border-width) solid var(--border);
+}
+
+/* Uppercase, letterspaced column labels — reads as a data table, not prose. */
+body.theme-style-executive .claude-styled th,
+body.theme-style-executive .claude-ui-styled th {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+body.theme-style-executive .claude-styled blockquote,
+body.theme-style-executive .claude-ui-styled blockquote {
+  background: var(--secondary);
+  border-left-color: var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+body.theme-style-executive .claude-styled blockquote p,
+body.theme-style-executive .claude-ui-styled blockquote p {
+  color: var(--foreground);
+}
+
+body.theme-style-executive .claude-styled a,
+body.theme-style-executive .claude-ui-styled a {
+  color: var(--link, var(--primary));
+  font-weight: var(--weight-medium);
+}

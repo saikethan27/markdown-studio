@@ -2,8 +2,12 @@
   "name": "markdown-studio",
   "displayName": "markdown-studio",
   "description": "Preview Markdown files in a Markdown Studio webview experience.",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "publisher": "saikethan",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/saikethan27/markdown-studio.git"
+  },
   "icon": "media/extension-icon.png",
   "engines": {
     "vscode": "^1.85.0"
@@ -13,14 +17,17 @@
     "Visualization"
   ],
   "activationEvents": [
-    "onCustomEditor:claudeMarkdownPreview.customEditor",
-    "onCommand:claudeMarkdownPreview.openPreview",
-    "onLanguage:markdown"
+    "onCustomEditor:claudeMarkdownPreview.customEditor"
   ],
-  "main": "./out/extension.js",
+  "main": "./dist/extension.js",
   "scripts": {
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
+    "build": "node esbuild.js",
+    "build:watch": "node esbuild.js --watch",
+    "build:prod": "node esbuild.js --production",
+    "vendor": "node esbuild.js --vendor-only",
+    "vscode:prepublish": "npm run compile && npm run build:prod",
     "test": "npm run test:unit",
     "test:unit": "npm run compile && node --test test/**/*.test.js",
     "test:integration": "npm run compile && vscode-test",
@@ -149,7 +156,18 @@
         "claudeMarkdownPreview.theme": {
           "type": "string",
           "default": "claude",
-          "description": "Active preview theme. Built-in values are 'claude' (warm token palette) and 'github' (GitHub-flavored styling); it may also be the name of any theme defined in claudeMarkdownPreview.customThemes. Use the Settings panel inside the preview to switch or add themes."
+          "description": "Active preview theme. Built-in values are 'claude' (warm token palette), 'github' (GitHub-flavored styling), 'ergoread' (tuned for long reading sessions: near-neutral surfaces, controlled contrast) and 'executive' (presentation: elevated surfaces, display headings, vivid status colours). It may also be the name of any theme defined in claudeMarkdownPreview.customThemes. Use the Settings panel inside the preview to switch or add themes."
+        },
+        "claudeMarkdownPreview.surfacePalettes": {
+          "type": "object",
+          "default": {
+            "ergoread": "warm",
+            "executive": "slate"
+          },
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Active surface palette per theme, for themes that ship more than one. Typography, spacing and contrast are identical across a theme's palettes — only the surface colour changes. ErgoRead accepts 'warm', 'cool', 'neutral' or 'cursor'; Executive accepts 'slate' or 'graphite'. Change these from the Settings panel inside the preview (gear icon → Surface palette)."
         },
         "claudeMarkdownPreview.customThemes": {
           "type": "array",
@@ -212,18 +230,20 @@
     "@types/vscode": "^1.85.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^3.0.0",
-    "mocha": "^11.3.0",
-    "typescript": "^5.4.5",
-    "vscode-extension-tester": "^8.23.0"
-  },
-  "dependencies": {
-    "highlight.js": "^11.11.1",
+    "esbuild": "^0.28.1",
     "katex": "^0.16.25",
     "markdown-it": "^14.1.0",
     "markdown-it-emoji": "^3.0.0",
     "markdown-it-footnote": "^4.0.0",
     "markdown-it-katex": "^2.0.3",
     "markdown-it-task-lists": "^2.1.1",
-    "mermaid": "^11.12.0"
+    "mermaid": "^11.12.0",
+    "mocha": "^11.3.0",
+    "typescript": "^5.4.5",
+    "vscode-extension-tester": "^8.23.0"
+  },
+  "//dependencies": "Build inputs live in devDependencies: markdown-it and katex are compiled into dist/extension.js by esbuild, and katex's CSS/fonts plus mermaid.min.js are copied into media/vendor. Only highlight.js has to ship as real files — src/render/highlighter.ts requires grammars by computed path so that just the languages in use get loaded, and a computed require cannot be bundled. vsce packages `dependencies` only, so this keeps node_modules out of the .vsix.",
+  "dependencies": {
+    "highlight.js": "^11.11.1"
   }
 }

@@ -11,7 +11,9 @@ import {
   snapshotUriFor,
   takeSnapshot
 } from "./preview/commentReview";
-import { renderMarkdownForExport } from "./render/markdownRenderer";
+import { katexCssPath } from "./preview/vendorAssets";
+import { getActivePalette, getActiveThemeStyle } from "./preview/themes";
+import { renderMarkdownForExport } from "./render/lazyRenderer";
 
 function isMarkdownDocument(document: vscode.TextDocument | undefined): document is vscode.TextDocument {
   return document?.languageId === "markdown";
@@ -103,10 +105,8 @@ export function activate(context: vscode.ExtensionContext): void {
     const baseCss = readCss("claude-base.css");
     const markdownCss = readCss("claude-markdown.css");
 
-    const katexCssFsPath = vscode.Uri.joinPath(
-      context.extensionUri, "node_modules", "katex", "dist", "katex.min.css"
-    ).fsPath;
-    const katexCss = fs.existsSync(katexCssFsPath) ? fs.readFileSync(katexCssFsPath, "utf8") : "";
+    const katexCssFsPath = katexCssPath(context.extensionUri);
+    const katexCss = katexCssFsPath ? fs.readFileSync(katexCssFsPath, "utf8") : "";
 
     // Render with export mode so images/assets use file:// URIs.
     const config = vscode.workspace.getConfiguration("claudeMarkdownPreview");
@@ -132,6 +132,16 @@ export function activate(context: vscode.ExtensionContext): void {
     });
 
     const title = path.basename(doc.fileName);
+
+    // Exported HTML is standalone, so bake the active theme into the body class
+    // rather than relying on the webview's runtime theme switching.
+    const exportThemeStyle = getActiveThemeStyle();
+    const exportPalette = getActivePalette(exportThemeStyle);
+    const exportBodyClass = [
+      "theme-light",
+      `theme-style-${exportThemeStyle}`,
+      exportPalette ? `theme-palette-${exportPalette}` : ""
+    ].filter(Boolean).join(" ");
 
     const htmlDoc = `<!DOCTYPE html>
 <html lang="en">
@@ -161,7 +171,7 @@ ${katexCss ? `  <style>\n/* katex */\n${katexCss}\n  </style>` : ""}
 body { --content-max-width: none; }
   </style>
 </head>
-<body class="theme-light theme-style-claude">
+<body class="${exportBodyClass}">
   <div class="claude-shell">
     <div class="claude-body">
       <main class="preview-main">

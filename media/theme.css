@@ -37,27 +37,55 @@
   --text-h4: 1.125rem;
   --text-h5: 1rem;
   --text-h6: 0.875rem;
-  --text-code: 0.875em;
+  --text-code: 0.8em;          /* inline code   — Cursor: code { font-size: .8em }  */
+  --text-code-block: 0.85em;   /* fenced blocks — Cursor: div[data-code] { .85em }  */
   --text-small: 0.875rem;
 
-  /* --- Typography rhythm --- */
-  --leading-body: 1.7;
-  --leading-heading: 1.3;
-  --leading-code: 1.6;
+  /* --- Spacing grid ---------------------------------------------------
+     4px base with half-steps, matching Cursor's --cursor-spacing-* ladder.
+     Use these for UI chrome (toolbars, badges, panels) — fixed px keeps
+     controls aligned regardless of the reader's font size. */
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+
+  /* --- Typography rhythm ----------------------------------------------
+     Prose spacing is em-relative so it scales with the reader's font size.
+     Values from Cursor's .vs-markdown-container. */
+  --leading-body: 1.6;         /* .rendered-markdown { line-height: 1.6 }  */
+  --leading-heading: 1.3;      /* --cursor-line-height-base                */
+  --leading-code: 1.4;         /* div[data-code] { line-height: 1.4 }      */
   --weight-normal: 400;
+  --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
   --letter-spacing-heading: -0.01em;
-  --space-paragraph: 0.75rem;
-  --space-block: 1rem;
-  --space-section: 1.5rem;
-  --space-section-lg: 2rem;
+
+  --space-paragraph: 1em;      /* p { margin-bottom: 1em }                 */
+  --space-heading: 0.5em;      /* h1-h6 { margin: .5em 0 }                 */
+  --space-block: 1em;          /* block elements: pre, blockquote, table   */
+  --space-section: 2em;        /* heading top — 2x its bottom, so headings
+                                  group with the text they introduce       */
+  --space-section-lg: 2.5em;   /* h2 top                                   */
+  --space-list-item: 0.25em;   /* li { margin-bottom: .25em }              */
+  --indent-list: 2em;          /* ol, ul { padding-left: 2em }             */
+  --pad-code-inline: 0.1em 0.3em;
+  --pad-code-block: 1em;
+  --pad-cell: 0.5em;           /* td, th { padding: .5em }                 */
+  --pad-quote: 1em;            /* blockquote { padding-left: 1em }         */
+  --border-quote: 3px;         /* blockquote { border-left: 3px }          */
 
   /* --- UI Typography --- */
   --text-ui-title: 1.15rem;
 
-  /* --- Shape --- */
-  --radius: 0.5rem;
+  /* --- Shape — Cursor's --cursor-radius-xs / -base / -lg --- */
+  --radius-xs: 3px;
+  --radius: 6px;
+  --radius-lg: 8px;
   --border-width: 1px;
 
   /* --- Colors (light) --- */
@@ -211,7 +239,6 @@
    LIGHT THEME OVERRIDES
    ============================================================ */
 body.theme-light {
-  --space-section-lg: 2rem;
   --text-ui-title: 1.15rem;
 
   --background: oklch(0.9818 0.0054 95.0986);
@@ -254,7 +281,6 @@ body.theme-light {
    DARK THEME OVERRIDES
    ============================================================ */
 body.theme-dark {
-  --space-section-lg: 2rem;
   --text-ui-title: 1.15rem;
 
   --background: oklch(0.2679 0.0036 106.6427);
@@ -432,6 +458,288 @@ body.theme-style-github.theme-dark {
   --comment-text: #f5efe0;
   --comment-anchor-bg: #bb800033;
   --comment-anchor-outline: #d29922;
+}
+
+/* ============================================================
+   ERGOREAD — long-form reading
+   ------------------------------------------------------------
+   Surfaces stay near-neutral (OKLCH chroma <= 0.010); all colour lives in the
+   accents. Body text targets APCA Lc 76 (dark) / 86 (light) — inside the 75-88
+   comfort band rather than maxed out, which is what stops long sessions from
+   fatiguing. Accents and syntax are shared by every ErgoRead palette; only the
+   surface block below changes, so contrast is identical across all four.
+   ============================================================ */
+body.theme-style-ergoread {
+  --hl-variable: var(--foreground);
+  --alert-note: var(--accent-blue);
+  --alert-tip: var(--accent-green);
+  --alert-warning: var(--accent-amber);
+  --alert-caution: var(--accent-rose);
+  --alert-important: var(--accent-violet);
+  --alert-note-bg: color-mix(in oklab, var(--accent-blue) var(--alert-mix), var(--card));
+  --alert-tip-bg: color-mix(in oklab, var(--accent-green) var(--alert-mix), var(--card));
+  --alert-warning-bg: color-mix(in oklab, var(--accent-amber) var(--alert-mix), var(--card));
+  --alert-caution-bg: color-mix(in oklab, var(--accent-rose) var(--alert-mix), var(--card));
+  --alert-important-bg: color-mix(in oklab, var(--accent-violet) var(--alert-mix), var(--card));
+  --comment-accent: var(--accent-amber);
+  --comment-bg: color-mix(in oklab, var(--accent-amber) var(--alert-mix), var(--card));
+  --comment-border: color-mix(in oklab, var(--accent-amber) 40%, transparent);
+  --comment-text: var(--foreground);
+  --comment-anchor-bg: color-mix(in oklab, var(--accent-amber) 25%, transparent);
+  --comment-anchor-outline: color-mix(in oklab, var(--accent-amber) 55%, transparent);
+}
+
+body.theme-style-ergoread.theme-dark {
+  --accent-blue: #90BFEC;
+  --accent-teal: #85CCC4;
+  --accent-green: #9ECC9E;
+  --accent-amber: #E1C186;
+  --accent-rose: #E99FA3;
+  --accent-violet: #C2AEE9;
+  --alert-mix: 15%;
+
+  --primary: var(--accent-blue);
+  --primary-foreground: #1A1A1A;
+  --ring: var(--accent-blue);
+  --strong-color: var(--strong);
+
+  --hl-keyword: #BFACE4;
+  --hl-string: #9DCA9E;
+  --hl-number: #EAB68D;
+  --hl-comment: #7F7D77;
+  --hl-function: #92C0EC;
+  --hl-type: #D7C186;
+  --hl-attr: #87CBC4;
+  --hl-tag: #BFACE4;
+  --hl-operator: #9DB6BE;
+  --hl-meta: #7F7D77;
+  --hl-deletion: #E99FA3;
+  --hl-addition: #9DCA9E;
+
+  --find-hit-bg: color-mix(in oklab, var(--accent-amber) 45%, var(--card));
+  --find-hit-color: var(--foreground);
+}
+
+body.theme-style-ergoread.theme-light {
+  --accent-blue: #015FA5;
+  --accent-teal: #00716D;
+  --accent-green: #37703B;
+  --accent-amber: #936720;
+  --accent-rose: #A72F3E;
+  --accent-violet: #6A3EA5;
+  --alert-mix: 11%;
+
+  --primary: var(--accent-blue);
+  --primary-foreground: #FFFFFF;
+  --ring: var(--accent-blue);
+  --strong-color: var(--strong);
+
+  --hl-keyword: #6941A1;
+  --hl-string: #356C38;
+  --hl-number: #9E511E;
+  --hl-comment: #8F8C84;
+  --hl-function: #0B5FA2;
+  --hl-type: #926721;
+  --hl-attr: #007169;
+  --hl-tag: #6941A1;
+  --hl-operator: #57666B;
+  --hl-meta: #8F8C84;
+  --hl-deletion: #A72F3E;
+  --hl-addition: #37703B;
+
+  --find-hit-bg: color-mix(in oklab, var(--accent-amber) 35%, var(--card));
+  --find-hit-color: var(--foreground);
+}
+
+/* --- ErgoRead surfaces: Warm Ash (Gruvbox / iA Writer lineage) ----------- */
+body.theme-style-ergoread.theme-palette-warm.theme-dark {
+  --background: #22201D; --card: #282622; --popover: #282622; --hl-bg: #1A1815;
+  --muted: #2D2B27; --secondary: #2D2B27; --accent: #2D2B27; --border: #3D3B37;
+  --foreground: #D6D2CC; --heading: #E0DDD7; --muted-foreground: #A19E99; --strong: #E8E5DF;
+  --card-foreground: #D6D2CC; --popover-foreground: #D6D2CC;
+  --secondary-foreground: #D6D2CC; --accent-foreground: #E0DDD7;
+}
+body.theme-style-ergoread.theme-palette-warm.theme-light {
+  --background: #F2F0EC; --card: #FCFBF9; --popover: #FCFBF9; --hl-bg: #F5F2EE;
+  --muted: #ECE9E5; --secondary: #ECE9E5; --accent: #ECE9E5; --border: #D3D0CA;
+  --foreground: #534F47; --heading: #3D3933; --muted-foreground: #7D7973; --strong: #35322C;
+  --card-foreground: #534F47; --popover-foreground: #534F47;
+  --secondary-foreground: #534F47; --accent-foreground: #3D3933;
+}
+
+/* --- ErgoRead surfaces: Cool Slate (Nord / GitHub-dimmed lineage) -------- */
+body.theme-style-ergoread.theme-palette-cool.theme-dark {
+  --background: #1D2125; --card: #22262B; --popover: #22262B; --hl-bg: #15191D;
+  --muted: #282C30; --secondary: #282C30; --accent: #282C30; --border: #383B40;
+  --foreground: #CCD3DC; --heading: #D8DEE5; --muted-foreground: #999FA6; --strong: #E0E6ED;
+  --card-foreground: #CCD3DC; --popover-foreground: #CCD3DC;
+  --secondary-foreground: #CCD3DC; --accent-foreground: #D8DEE5;
+}
+body.theme-style-ergoread.theme-palette-cool.theme-light {
+  --background: #EEF0F3; --card: #FAFBFD; --popover: #FAFBFD; --hl-bg: #F0F3F6;
+  --muted: #E7EAEE; --secondary: #E7EAEE; --accent: #E7EAEE; --border: #CDD1D5;
+  --foreground: #4B5055; --heading: #363B3F; --muted-foreground: #767A7F; --strong: #2E3338;
+  --card-foreground: #4B5055; --popover-foreground: #4B5055;
+  --secondary-foreground: #4B5055; --accent-foreground: #363B3F;
+}
+
+/* --- ErgoRead surfaces: Graphite (no cast at all) ------------------------ */
+body.theme-style-ergoread.theme-palette-neutral.theme-dark {
+  --background: #21201F; --card: #262624; --popover: #262624; --hl-bg: #191917;
+  --muted: #2C2B2A; --secondary: #2C2B2A; --accent: #2C2B2A; --border: #3B3B39;
+  --foreground: #D3D2CF; --heading: #DEDDDB; --muted-foreground: #9F9E9C; --strong: #E6E5E2;
+  --card-foreground: #D3D2CF; --popover-foreground: #D3D2CF;
+  --secondary-foreground: #D3D2CF; --accent-foreground: #DEDDDB;
+}
+body.theme-style-ergoread.theme-palette-neutral.theme-light {
+  --background: #F0F0EE; --card: #FBFBFA; --popover: #FBFBFA; --hl-bg: #F3F2F1;
+  --muted: #EAEAE8; --secondary: #EAEAE8; --accent: #EAEAE8; --border: #D1D0CE;
+  --foreground: #504F4C; --heading: #3B3A37; --muted-foreground: #7A7A77; --strong: #333230;
+  --card-foreground: #504F4C; --popover-foreground: #504F4C;
+  --secondary-foreground: #504F4C; --accent-foreground: #3B3A37;
+}
+
+/* --- ErgoRead surfaces: Cursor -------------------------------------------
+   Measured from Cursor's own build: surfaces at OKLCH chroma 0.000, and its
+   stacking order, where the code block sits ABOVE the reading surface rather
+   than recessed below it. Accents are Nord-family (Cursor ships #81A1C1 /
+   #88C0D0) lifted into our contrast band, since Cursor's own links sit at
+   Lc -48, too faint for body prose. */
+body.theme-style-ergoread.theme-palette-cursor.theme-dark {
+  --background: #141414; --card: #181818; --popover: #181818; --hl-bg: #212121;
+  --muted: #252525; --secondary: #252525; --accent: #252525; --border: #3A3A3A;
+  --foreground: #CCCCCC; --heading: #E8E8E8; --muted-foreground: #929292; --strong: #F0F0F0;
+  --card-foreground: #CCCCCC; --popover-foreground: #CCCCCC;
+  --secondary-foreground: #CCCCCC; --accent-foreground: #E8E8E8;
+  --accent-blue: #99BBDE; --accent-teal: #94C4C3; --accent-green: #A3C69C;
+  --accent-amber: #E3C78C; --accent-rose: #E7A09F; --accent-violet: #CCA9D4;
+}
+body.theme-style-ergoread.theme-palette-cursor.theme-light {
+  --background: #F3F3F3; --card: #FCFCFC; --popover: #FCFCFC; --hl-bg: #F0F0F0;
+  --muted: #EAEAEA; --secondary: #EAEAEA; --accent: #EAEAEA; --border: #D2D2D2;
+  --foreground: #505050; --heading: #2E2E2E; --muted-foreground: #7A7A7A; --strong: #232323;
+  --card-foreground: #505050; --popover-foreground: #505050;
+  --secondary-foreground: #505050; --accent-foreground: #2E2E2E;
+  --accent-blue: #226198; --accent-teal: #127070; --accent-green: #46703D;
+  --accent-amber: #8C6E28; --accent-rose: #A03E43; --accent-violet: #7B4A87;
+}
+
+/* ============================================================
+   EXECUTIVE — presentation, dashboards, showcase
+   ------------------------------------------------------------
+   Deliberately higher contrast than ErgoRead (body Lc 80 dark / 94 light):
+   built to be scanned, not read for an hour. Surfaces stay low-chroma so the
+   vivid semantic accents carry the hierarchy on their own.
+   ============================================================ */
+body.theme-style-executive {
+  --hl-variable: var(--foreground);
+  --alert-note: var(--link);
+  --alert-tip: var(--success);
+  --alert-warning: var(--warning);
+  --alert-caution: var(--danger);
+  --alert-important: var(--brand-2);
+  --alert-note-bg: color-mix(in oklab, var(--link) var(--alert-mix), var(--card));
+  --alert-tip-bg: color-mix(in oklab, var(--success) var(--alert-mix), var(--card));
+  --alert-warning-bg: color-mix(in oklab, var(--warning) var(--alert-mix), var(--card));
+  --alert-caution-bg: color-mix(in oklab, var(--danger) var(--alert-mix), var(--card));
+  --alert-important-bg: color-mix(in oklab, var(--brand-2) var(--alert-mix), var(--card));
+  --rule-accent: linear-gradient(90deg, var(--primary), var(--brand-2) 70%, transparent);
+  --comment-accent: var(--warning);
+  --comment-bg: color-mix(in oklab, var(--warning) var(--alert-mix), var(--card));
+  --comment-border: color-mix(in oklab, var(--warning) 40%, transparent);
+  --comment-text: var(--foreground);
+  --comment-anchor-bg: color-mix(in oklab, var(--warning) 25%, transparent);
+  --comment-anchor-outline: color-mix(in oklab, var(--warning) 55%, transparent);
+}
+
+body.theme-style-executive.theme-dark {
+  --primary: #51A2F8;
+  --link: #8CC0F2;
+  --brand-2: #B484E8;
+  --success: #52B766;
+  --warning: #E3AD4B;
+  --danger: #F36164;
+  --primary-foreground: #0F1317;
+  --ring: #51A2F8;
+  --strong-color: var(--strong);
+  --alert-mix: 16%;
+
+  --hl-keyword: #BFACE4;
+  --hl-string: #9DCA9E;
+  --hl-number: #EAB68D;
+  --hl-comment: #7F7D77;
+  --hl-function: #92C0EC;
+  --hl-type: #D7C186;
+  --hl-attr: #87CBC4;
+  --hl-tag: #BFACE4;
+  --hl-operator: #9DB6BE;
+  --hl-meta: #7F7D77;
+  --hl-deletion: #F36164;
+  --hl-addition: #52B766;
+
+  --find-hit-bg: color-mix(in oklab, var(--warning) 45%, var(--card));
+  --find-hit-color: var(--foreground);
+}
+
+body.theme-style-executive.theme-light {
+  --primary: #0065D2;
+  --link: #005ABA;
+  --brand-2: #7935C6;
+  --success: #1D863B;
+  --warning: #B47819;
+  --danger: #C72D31;
+  --primary-foreground: #FFFFFF;
+  --ring: #0065D2;
+  --strong-color: var(--strong);
+  --alert-mix: 10%;
+
+  --hl-keyword: #6941A1;
+  --hl-string: #356C38;
+  --hl-number: #9E511E;
+  --hl-comment: #8F8C84;
+  --hl-function: #0B5FA2;
+  --hl-type: #926721;
+  --hl-attr: #007169;
+  --hl-tag: #6941A1;
+  --hl-operator: #57666B;
+  --hl-meta: #8F8C84;
+  --hl-deletion: #C72D31;
+  --hl-addition: #1D863B;
+
+  --find-hit-bg: color-mix(in oklab, var(--warning) 35%, var(--card));
+  --find-hit-color: var(--foreground);
+}
+
+/* --- Executive surfaces: Slate (cool, boardroom) ------------------------- */
+body.theme-style-executive.theme-palette-slate.theme-dark {
+  --background: #13181C; --card: #1D2126; --popover: #262B2F; --hl-bg: #0F1317;
+  --muted: #272C31; --secondary: #262B2F; --accent: #262B2F; --border: #42474C;
+  --foreground: #D2D8DE; --heading: #EAEDF1; --muted-foreground: #9399A0; --strong: #F1F4F7;
+  --card-foreground: #D2D8DE; --popover-foreground: #D2D8DE;
+  --secondary-foreground: #D2D8DE; --accent-foreground: #EAEDF1;
+}
+body.theme-style-executive.theme-palette-slate.theme-light {
+  --background: #F6F8FA; --card: #FDFDFE; --popover: #FDFDFE; --hl-bg: #F1F4F7;
+  --muted: #EAEDF0; --secondary: #F1F4F7; --accent: #F1F4F7; --border: #CDD1D5;
+  --foreground: #3A3E42; --heading: #232629; --muted-foreground: #6E7175; --strong: #1D2023;
+  --card-foreground: #3A3E42; --popover-foreground: #3A3E42;
+  --secondary-foreground: #3A3E42; --accent-foreground: #232629;
+}
+
+/* --- Executive surfaces: Graphite (neutral-warm, editorial) -------------- */
+body.theme-style-executive.theme-palette-graphite.theme-dark {
+  --background: #171715; --card: #21201E; --popover: #2A2A28; --hl-bg: #131311;
+  --muted: #2C2B29; --secondary: #2A2A28; --accent: #2A2A28; --border: #474644;
+  --foreground: #D7D7D4; --heading: #EDEDEB; --muted-foreground: #999895; --strong: #F4F3F2;
+  --card-foreground: #D7D7D4; --popover-foreground: #D7D7D4;
+  --secondary-foreground: #D7D7D4; --accent-foreground: #EDEDEB;
+}
+body.theme-style-executive.theme-palette-graphite.theme-light {
+  --background: #F8F8F6; --card: #FDFDFD; --popover: #FDFDFD; --hl-bg: #F4F4F1;
+  --muted: #EDECEA; --secondary: #F4F4F1; --accent: #F4F4F1; --border: #D1D0CD;
+  --foreground: #3E3E3A; --heading: #262623; --muted-foreground: #71716E; --strong: #201F1D;
+  --card-foreground: #3E3E3A; --popover-foreground: #3E3E3A;
+  --secondary-foreground: #3E3E3A; --accent-foreground: #262623;
 }
 
 /* ============================================================

@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Markdown Studio — ErgoRead &amp; Executive design systems</title>
+<style>
+/* ==========================================================================
+   DEMO CHROME (not part of either design system — just the harness)
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: #14161c;
+  color: #d7dae3;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+}
+.app-bar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  background: #1a1d25;
+  border-bottom: 1px solid #2b2f3a;
+}
+.app-bar__title { font-size: 0.95rem; font-weight: 650; letter-spacing: -0.01em; color: #f2f4f8; margin-right: auto; }
+.app-bar__title span { display: block; font-size: 0.75rem; font-weight: 400; color: #868da0; letter-spacing: 0; }
+.seg { display: inline-flex; background: #101319; border: 1px solid #2b2f3a; border-radius: 8px; padding: 3px; gap: 3px; }
+.seg button {
+  appearance: none; border: 0; background: transparent; color: #9aa2b5;
+  font: inherit; font-size: 0.8125rem; font-weight: 550;
+  padding: 0.35rem 0.75rem; border-radius: 6px; cursor: pointer;
+}
+.seg button:hover { color: #e6e9f0; }
+.seg button[aria-pressed="true"] { background: #2f6bd8; color: #fff; }
+.seg button:focus-visible { outline: 2px solid #6ea8ff; outline-offset: 1px; }
+
+.stage { display: grid; gap: 1.25rem; padding: 1.25rem; align-items: start; }
+.stage[data-view="both"] { grid-template-columns: repeat(auto-fit, minmax(520px, 1fr)); }
+.stage[data-view="ergoread"] .panel[data-system="executive"],
+.stage[data-view="executive"] .panel[data-system="ergoread"] { display: none; }
+
+.panel {
+  border: 1px solid #2b2f3a; border-radius: 12px; overflow: hidden;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.35);
+}
+.panel__bar {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.5rem 0.85rem; background: #1a1d25; border-bottom: 1px solid #2b2f3a;
+  font-size: 0.75rem; color: #98a0b3; letter-spacing: 0.02em;
+}
+.panel__dot { width: 9px; height: 9px; border-radius: 50%; }
+.panel__name { font-weight: 650; color: #e8ebf2; letter-spacing: 0; font-size: 0.8125rem; }
+.panel__tag { margin-left: auto; font-variant-numeric: tabular-nums; color: #7f8798; }
+.chips { display: inline-flex; gap: 4px; }
+.chips button {
+  appearance: none; border: 1px solid #333846; background: #121620; color: #8f97a8;
+  font: inherit; font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.02em;
+  padding: 0.2rem 0.5rem; border-radius: 999px; cursor: pointer;
+}
+.chips button:hover { color: #dfe4ee; border-color: #454b5c; }
+.chips button[aria-pressed="true"] { background: #2b3346; color: #eef1f7; border-color: #4c5568; }
+.chips button:focus-visible { outline: 2px solid #6ea8ff; outline-offset: 1px; }
+.panel__viewport { max-height: 78vh; overflow: auto; }
+
+.notes { padding: 0 1.25rem 3rem; max-width: 1400px; }
+.notes h2 { font-size: 1.05rem; color: #f2f4f8; margin: 2rem 0 0.75rem; }
+.notes p { color: #9aa2b5; max-width: 78ch; line-height: 1.6; }
+.tokens { width: 100%; border-collapse: collapse; font-size: 0.8125rem; margin-top: 0.5rem; }
+.tokens th, .tokens td { text-align: left; padding: 0.45rem 0.7rem; border-bottom: 1px solid #262a34; vertical-align: middle; }
+.tokens th { color: #8d94a7; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; }
+.tokens td code { font-family: ui-monospace, Consolas, monospace; font-size: 0.75rem; color: #cfd4e0; }
+.sw { display: inline-block; width: 34px; height: 16px; border-radius: 4px; border: 1px solid #3a3f4d; vertical-align: -3px; margin-right: 0.5rem; }
+.table-scroll { overflow-x: auto; }
+
+/* ==========================================================================
+   SHARED SPACING & SIZING SCALE
+   Measured from Cursor 2026.07 (--cursor-spacing-*, --cursor-radius-*,
+   --cursor-font-weight-*) plus its .vs-markdown-container element metrics.
+   Every palette in this file — both design systems — uses these. Only
+   COLOUR and the HEADING SCALE differ between ErgoRead and Executive.
+   ========================================================================== */
+.ds {
+  font-family: var(--font-sans);
+
+  /* 4px base grid with half-steps — Cursor's exact ladder */
+  --space-0-5:  2px;
+  --space-1:    4px;
+  --space-1-5:  6px;
+  --space-2:    8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-6:   24px;
+
+  /* Cursor: --cursor-radius-xs / -base / -lg */
+  --radius-xs:  3px;
+  --radius:     6px;
+  --radius-lg:  8px;
+
+  /* Cursor: --cursor-font-weight-* */
+  --weight-normal:   400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  /* Cursor's markdown metrics — em-relative so they track font size */
+  --leading-body:      1.6;    /* .rendered-markdown line-height */
+  --leading-code:      1.4;    /* div[data-code] line-height     */
+  --leading-heading:   1.3;    /* --cursor-line-height-base      */
+  --space-paragraph:   1em;    /* p margin-bottom                */
+  --space-heading:     0.5em;  /* h1–h6 margin block             */
+  --space-list-item:   0.25em; /* li margin-bottom               */
+  --indent-list:       2em;    /* ol/ul padding-left             */
+  --pad-code-inline:   0.1em 0.3em;
+  --pad-code-block:    0.5em;
+  --pad-cell:          0.5em;
+  --pad-quote:         1em;
+  --border-quote:      3px;
+  --text-code-inline:  0.8em;  /* code font-size                 */
+  --text-code-block:   0.85em; /* div[data-code] font-size       */
+
+  /* Cursor sets this explicitly rather than `antialiased` — preserves
+     stroke weight, which is what keeps perceived contrast honest. */
+  -webkit-font-smoothing: subpixel-antialiased;
+}
+
+/* ==========================================================================
+   DESIGN SYSTEM 1 — "ErgoRead"  (sustained reading)
+   Tokens use the extension's existing names so they port 1:1 into theme.css.
+   ========================================================================== */
+.ds--ergoread {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", "Inter", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Fira Code", Consolas, monospace;
+
+  --content-max-width: 68ch;
+  --text-body: 1rem;
+  --text-h1: 1.75rem;
+  --text-h2: 1.375rem;
+  --text-h3: 1.125rem;
+  --text-small: 0.8125rem;
+
+  --weight-heading: var(--weight-semibold);
+  --letter-spacing-heading: -0.005em;
+
+  --shadow-card: none;
+  --rule-accent: none;
+}
+
+/* --- Accents & syntax: SHARED by all three ErgoRead surface palettes -------
+   All chroma lives here. Surfaces stay near-neutral so the accents are the
+   only thing in the page carrying colour — that is what stops it vibrating. */
+.ds--ergoread[data-mode="dark"] {
+  --accent-blue:   #90BFEC;
+  --accent-teal:   #85CCC4;
+  --accent-green:  #9ECC9E;
+  --accent-amber:  #E1C186;
+  --accent-rose:   #E99FA3;
+  --accent-violet: #C2AEE9;
+  --primary: var(--accent-blue);
+  --primary-foreground: #1A1A1A;
+  --alert-mix: 15%;
+
+  --hl-keyword:  #BFACE4;
+  --hl-string:   #9DCA9E;
+  --hl-number:   #EAB68D;
+  --hl-comment:  #7F7D77;
+  --hl-function: #92C0EC;
+  --hl-type:     #D7C186;
+  --hl-attr:     #87CBC4;
+  --hl-operator: #9DB6BE;
+}
+.ds--ergoread[data-mode="light"] {
+  --accent-blue:   #015FA5;
+  --accent-teal:   #00716D;
+  --accent-green:  #37703B;
+  --accent-amber:  #936720;
+  --accent-rose:   #A72F3E;
+  --accent-violet: #6A3EA5;
+  --primary: var(--accent-blue);
+  --primary-foreground: #FFFFFF;
+  --alert-mix: 11%;
+
+  --hl-keyword:  #6941A1;
+  --hl-string:   #356C38;
+  --hl-number:   #9E511E;
+  --hl-comment:  #8F8C84;
+  --hl-function: #0B5FA2;
+  --hl-type:     #926721;
+  --hl-attr:     #007169;
+  --hl-operator: #57666B;
+}
+.ds--ergoread {
+  --hl-variable: var(--foreground);
+  --alert-note: var(--accent-blue);
+  --alert-tip: var(--accent-green);
+  --alert-warning: var(--accent-amber);
+  --alert-caution: var(--accent-rose);
+  --alert-note-bg:    color-mix(in oklab, var(--accent-blue)  var(--alert-mix), var(--card));
+  --alert-tip-bg:     color-mix(in oklab, var(--accent-green) var(--alert-mix), var(--card));
+  --alert-warning-bg: color-mix(in oklab, var(--accent-amber) var(--alert-mix), var(--card));
+  --alert-caution-bg: color-mix(in oklab, var(--accent-rose)  var(--alert-mix), var(--card));
+  --mark-bg:          color-mix(in oklab, var(--accent-amber) 32%, var(--card));
+}
+
+/* --- Surface palette A: WARM ASH (Gruvbox / iA Writer lineage) ------------ */
+.ds--ergoread[data-palette="warm"][data-mode="dark"] {
+  --background: #22201D; --card: #282622; --hl-bg: #1A1815; --muted: #2D2B27;
+  --border-soft: #32302D; --border: #3D3B37;
+  --foreground: #D6D2CC; --heading: #E0DDD7; --muted-foreground: #A19E99; --strong-color: #E8E5DF;
+}
+.ds--ergoread[data-palette="warm"][data-mode="light"] {
+  --background: #F2F0EC; --card: #FCFBF9; --hl-bg: #F5F2EE; --muted: #ECE9E5;
+  --border-soft: #E3DFDA; --border: #D3D0CA;
+  --foreground: #534F47; --heading: #3D3933; --muted-foreground: #7D7973; --strong-color: #35322C;
+}
+
+/* --- Surface palette B: COOL SLATE (Nord / GitHub-dimmed lineage) --------- */
+.ds--ergoread[data-palette="cool"][data-mode="dark"] {
+  --background: #1D2125; --card: #22262B; --hl-bg: #15191D; --muted: #282C30;
+  --border-soft: #2D3135; --border: #383B40;
+  --foreground: #CCD3DC; --heading: #D8DEE5; --muted-foreground: #999FA6; --strong-color: #E0E6ED;
+}
+.ds--ergoread[data-palette="cool"][data-mode="light"] {
+  --background: #EEF0F3; --card: #FAFBFD; --hl-bg: #F0F3F6; --muted: #E7EAEE;
+  --border-soft: #DDE0E4; --border: #CDD1D5;
+  --foreground: #4B5055; --heading: #363B3F; --muted-foreground: #767A7F; --strong-color: #2E3338;
+}
+
+/* --- Surface palette D: CURSOR (measured from Cursor 2026.07 build) -------
+   Surfaces are chroma 0.000 — literally pure grey. Note the stacking order:
+   Cursor puts the reading surface ABOVE the canvas and the code block ABOVE
+   that, so code reads as raised, not recessed. Accents are Nord-family
+   (Cursor ships #81A1C1 / #88C0D0), lifted into our Lc band. */
+.ds--ergoread[data-palette="cursor"][data-mode="dark"] {
+  --background: #141414; --card: #181818; --hl-bg: #212121; --muted: #252525;
+  --border-soft: #292929; --border: #3A3A3A;
+  --foreground: #CCCCCC; --heading: #E8E8E8; --muted-foreground: #929292; --strong-color: #F0F0F0;
+  --accent-blue: #99BBDE; --accent-teal: #94C4C3; --accent-green: #A3C69C;
+  --accent-amber: #E3C78C; --accent-rose: #E7A09F; --accent-violet: #CCA9D4;
+}
+.ds--ergoread[data-palette="cursor"][data-mode="light"] {
+  --background: #F3F3F3; --card: #FCFCFC; --hl-bg: #F0F0F0; --muted: #EAEAEA;
+  --border-soft: #E2E2E2; --border: #D2D2D2;
+  --foreground: #505050; --heading: #2E2E2E; --muted-foreground: #7A7A7A; --strong-color: #232323;
+  --accent-blue: #226198; --accent-teal: #127070; --accent-green: #46703D;
+  --accent-amber: #8C6E28; --accent-rose: #A03E43; --accent-violet: #7B4A87;
+}
+/* Cursor's markdown metrics now live in the shared .ds scale block above —
+   every palette in both systems gets them, so nothing is needed here. */
+
+/* --- Surface palette C: NEUTRAL GRAPHITE (no cast at all) ----------------- */
+.ds--ergoread[data-palette="neutral"][data-mode="dark"] {
+  --background: #21201F; --card: #262624; --hl-bg: #191917; --muted: #2C2B2A;
+  --border-soft: #31302F; --border: #3B3B39;
+  --foreground: #D3D2CF; --heading: #DEDDDB; --muted-foreground: #9F9E9C; --strong-color: #E6E5E2;
+}
+.ds--ergoread[data-palette="neutral"][data-mode="light"] {
+  --background: #F0F0EE; --card: #FBFBFA; --hl-bg: #F3F2F1; --muted: #EAEAE8;
+  --border-soft: #E0E0DE; --border: #D1D0CE;
+  --foreground: #504F4C; --heading: #3B3A37; --muted-foreground: #7A7A77; --strong-color: #333230;
+}
+
+/* ==========================================================================
+   DESIGN SYSTEM 2 — "Executive"  (presentation / showcase)
+   ========================================================================== */
+.ds--executive {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", "SF Pro Display", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, monospace;
+
+  --content-max-width: 80ch;
+  --text-body: 1rem;
+  --text-h1: 2.125rem;
+  --text-h2: 1.5rem;
+  --text-h3: 1.1875rem;
+  --text-small: 0.75rem;
+
+  --leading-heading: 1.2;
+  --weight-heading: var(--weight-bold);
+  --letter-spacing-heading: -0.02em;
+
+  --rule-accent: linear-gradient(90deg, var(--primary), var(--brand-2) 70%, transparent);
+}
+
+/* --- Accents & syntax: SHARED by both Executive surface palettes ---------- */
+.ds--executive[data-mode="dark"] {
+  --primary:  #51A2F8;
+  --link:     #8CC0F2;
+  --brand-2:  #B484E8;
+  --success:  #52B766;
+  --warning:  #E3AD4B;
+  --danger:   #F36164;
+  --primary-foreground: #0F1317;
+  --alert-mix: 16%;
+  --shadow-card: 0 1px 0 rgb(255 255 255 / 0.035) inset, 0 8px 22px rgb(0 0 0 / 0.38);
+
+  --hl-keyword:  #BFACE4;
+  --hl-string:   #9DCA9E;
+  --hl-number:   #EAB68D;
+  --hl-comment:  #7F7D77;
+  --hl-function: #92C0EC;
+  --hl-type:     #D7C186;
+  --hl-attr:     #87CBC4;
+  --hl-operator: #9DB6BE;
+}
+.ds--executive[data-mode="light"] {
+  --primary:  #0065D2;
+  --link:     #005ABA;
+  --brand-2:  #7935C6;
+  --success:  #1D863B;
+  --warning:  #B47819;
+  --danger:   #C72D31;
+  --primary-foreground: #FFFFFF;
+  --alert-mix: 10%;
+  --shadow-card: 0 1px 2px rgb(16 22 26 / 0.05), 0 6px 16px rgb(16 22 26 / 0.06);
+
+  --hl-keyword:  #6941A1;
+  --hl-string:   #356C38;
+  --hl-number:   #9E511E;
+  --hl-comment:  #8F8C84;
+  --hl-function: #0B5FA2;
+  --hl-type:     #926721;
+  --hl-attr:     #007169;
+  --hl-operator: #57666B;
+}
+.ds--executive {
+  --hl-variable: var(--foreground);
+  --alert-note: var(--link);
+  --alert-tip: var(--success);
+  --alert-warning: var(--warning);
+  --alert-caution: var(--danger);
+  --alert-note-bg:    color-mix(in oklab, var(--link)    var(--alert-mix), var(--card));
+  --alert-tip-bg:     color-mix(in oklab, var(--success) var(--alert-mix), var(--card));
+  --alert-warning-bg: color-mix(in oklab, var(--warning) var(--alert-mix), var(--card));
+  --alert-caution-bg: color-mix(in oklab, var(--danger)  var(--alert-mix), var(--card));
+  --mark-bg:          color-mix(in oklab, var(--warning) 30%, var(--card));
+}
+
+/* --- Surface palette A: SLATE (cool, boardroom) --------------------------- */
+.ds--executive[data-palette="slate"][data-mode="dark"] {
+  --background: #13181C; --card: #1D2126; --surface: #262B2F; --hl-bg: #0F1317; --muted: #272C31;
+  --border-soft: #303539; --border: #42474C;
+  --foreground: #D2D8DE; --heading: #EAEDF1; --muted-foreground: #9399A0; --strong-color: #F1F4F7;
+}
+.ds--executive[data-palette="slate"][data-mode="light"] {
+  --background: #F6F8FA; --card: #FDFDFE; --surface: #F1F4F7; --hl-bg: #F1F4F7; --muted: #EAEDF0;
+  --border-soft: #E0E3E6; --border: #CDD1D5;
+  --foreground: #3A3E42; --heading: #232629; --muted-foreground: #6E7175; --strong-color: #1D2023;
+}
+
+/* --- Surface palette B: GRAPHITE (neutral, warmer, less "tech-blue") ------ */
+.ds--executive[data-palette="graphite"][data-mode="dark"] {
+  --background: #171715; --card: #21201E; --surface: #2A2A28; --hl-bg: #131311; --muted: #2C2B29;
+  --border-soft: #343432; --border: #474644;
+  --foreground: #D7D7D4; --heading: #EDEDEB; --muted-foreground: #999895; --strong-color: #F4F3F2;
+}
+.ds--executive[data-palette="graphite"][data-mode="light"] {
+  --background: #F8F8F6; --card: #FDFDFD; --surface: #F4F4F1; --hl-bg: #F4F4F1; --muted: #EDECEA;
+  --border-soft: #E3E3E0; --border: #D1D0CD;
+  --foreground: #3E3E3A; --heading: #262623; --muted-foreground: #71716E; --strong-color: #201F1D;
+}
+
+/* ==========================================================================
+   SHARED RENDERING (mirrors claude-markdown.css structure)
+   ========================================================================== */
+.ds { background: var(--background); color: var(--foreground); }
+.ds .doc {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-6) calc(var(--space-6) * 2);
+  background: var(--card);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+}
+.ds--executive .doc { max-width: none; }
+.ds--executive .doc > * { max-width: var(--content-max-width); }
+
+/* Cursor: h1–h6 { margin-top: .5em; margin-bottom: .5em } */
+.ds h1, .ds h2, .ds h3 {
+  color: var(--heading);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-heading);
+  letter-spacing: var(--letter-spacing-heading);
+  margin: calc(var(--space-heading) * 2) 0 var(--space-heading);
+}
+.ds h1 { font-size: var(--text-h1); margin-top: 0; }
+.ds h2 { font-size: var(--text-h2); }
+.ds h3 { font-size: var(--text-h3); }
+.ds p  { margin: 0 0 var(--space-paragraph); }
+.ds .lede { color: var(--muted-foreground); font-size: 1.0625rem; }
+.ds--executive .lede { font-size: 1.125rem; }
+
+.ds a { color: var(--link, var(--primary)); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+.ds a:hover { border-bottom-color: currentColor; }
+.ds strong { color: var(--strong-color); font-weight: var(--weight-semibold); }
+.ds mark { background: var(--mark-bg); color: inherit; padding: 0 0.15em; border-radius: var(--radius-xs); }
+.ds ul, .ds ol { margin: 0 0 var(--space-paragraph); padding-left: var(--indent-list); }
+.ds li { margin-bottom: var(--space-list-item); }
+.ds li::marker { color: var(--muted-foreground); }
+.ds hr { border: 0; border-top: 1px solid var(--border-soft); margin: var(--space-paragraph) 0; }
+
+/* Cursor: code { font-size: .8em; padding: .1em .3em; radius 3px; no border } */
+.ds code {
+  font-family: var(--font-mono);
+  font-size: var(--text-code-inline);
+  background: var(--hl-bg);
+  border-radius: var(--radius-xs);
+  padding: var(--pad-code-inline);
+}
+/* Cursor: div[data-code] { font-size: .85em; line-height: 1.4; radius 4px } */
+.ds pre {
+  margin: 0 0 var(--space-paragraph);
+  background: var(--hl-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow-x: auto;
+  line-height: var(--leading-code);
+  font-size: var(--text-code-block);
+}
+.ds pre code { background: none; border: 0; padding: 0; font-size: inherit; }
+.ds .code-head {
+  display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  border-bottom: 1px solid var(--border-soft);
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.ds pre .body { display: block; padding: var(--space-3); }
+.ds .k { color: var(--hl-keyword); }
+.ds .s { color: var(--hl-string); }
+.ds .n { color: var(--hl-number); }
+.ds .c { color: var(--hl-comment); font-style: italic; }
+.ds .f { color: var(--hl-function); }
+.ds .t { color: var(--hl-type); }
+.ds .o { color: var(--hl-operator); }
+
+/* Cursor: blockquote { border-left: 3px; padding-left: 1em; margin: .5em 0 } */
+.ds blockquote {
+  margin: 0 0 var(--space-paragraph);
+  padding: var(--space-heading) 0 var(--space-heading) var(--pad-quote);
+  border-left: var(--border-quote) solid var(--border);
+  color: var(--muted-foreground);
+}
+/* Cursor: td, th { padding: .5em }  table { margin: 1em 0 } */
+.ds table { border-collapse: collapse; width: 100%; margin: 0 0 var(--space-paragraph); font-size: 0.9375rem; }
+.ds th, .ds td { border: 1px solid var(--border); padding: var(--pad-cell); text-align: left; }
+.ds th { background: var(--muted); color: var(--heading); font-weight: var(--weight-bold); }
+
+.ds .alert { border-radius: var(--radius); padding: var(--space-3); margin: 0 0 var(--space-paragraph); border-left: var(--border-quote) solid; }
+.ds .alert__title { font-weight: var(--weight-semibold); font-size: 0.875rem; margin-bottom: var(--space-1); letter-spacing: 0.01em; }
+.ds .alert p:last-child { margin: 0; }
+.ds .alert--note { background: var(--alert-note-bg); border-color: var(--alert-note); }
+.ds .alert--note .alert__title { color: var(--alert-note); }
+.ds .alert--tip { background: var(--alert-tip-bg); border-color: var(--alert-tip); }
+.ds .alert--tip .alert__title { color: var(--alert-tip); }
+.ds .alert--warning { background: var(--alert-warning-bg); border-color: var(--alert-warning); }
+.ds .alert--warning .alert__title { color: var(--alert-warning); }
+
+.ds .meta { color: var(--muted-foreground); font-size: var(--text-small); }
+
+/* --- ErgoRead-specific rendering: flat, quiet, generous rhythm ------------ */
+.ds--ergoread .doc { border-left: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); min-height: 100%; }
+.ds--ergoread h2 { padding-bottom: var(--space-1); border-bottom: 1px solid var(--border-soft); }
+.ds--ergoread blockquote { border-left-color: color-mix(in srgb, var(--primary) 45%, transparent); font-style: italic; }
+.ds--ergoread .exec-only { display: none; }
+
+/* --- Executive-specific rendering: elevation, definition, hierarchy ------- */
+.ds--executive h1 { display: flex; flex-direction: column; gap: var(--space-2); }
+.ds--executive h1::after { content: ""; width: 84px; height: var(--space-1); border-radius: 999px; background: var(--rule-accent); }
+.ds--executive pre, .ds--executive table, .ds--executive .alert { box-shadow: var(--shadow-card); }
+.ds--executive table { border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); }
+.ds--executive th, .ds--executive td { border: 0; border-bottom: 1px solid var(--border-soft); }
+.ds--executive th { background: var(--surface); font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted-foreground); }
+.ds--executive tr:last-child td { border-bottom: 0; }
+.ds--executive blockquote {
+  background: var(--surface); border-left: var(--border-quote) solid var(--primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: var(--space-3) var(--pad-quote); color: var(--foreground);
+}
+
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-2); margin: 0 0 var(--space-6); max-width: none !important; }
+.metric { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-3); box-shadow: var(--shadow-card); }
+.metric__label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted-foreground); font-weight: var(--weight-semibold); }
+.metric__value { font-size: 1.75rem; font-weight: var(--weight-bold); letter-spacing: -0.03em; color: var(--heading); line-height: 1.15; margin-top: var(--space-0-5); font-variant-numeric: tabular-nums; }
+.metric__delta { font-size: 0.75rem; font-weight: var(--weight-semibold); }
+.metric__delta.up { color: var(--success); }
+.metric__delta.down { color: var(--danger); }
+
+.actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin: 0 0 var(--space-6); }
+.btn { appearance: none; font: inherit; font-size: 0.8125rem; font-weight: var(--weight-semibold); padding: var(--space-1-5) var(--space-3); border-radius: var(--radius); cursor: pointer; border: 1px solid transparent; }
+.btn--primary { background: var(--primary); color: var(--primary-foreground); }
+.btn--success { background: var(--success); color: #fff; }
+.btn--ghost { background: transparent; color: var(--foreground); border-color: var(--border); }
+.btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.badge { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 0.6875rem; font-weight: var(--weight-semibold); letter-spacing: 0.04em; text-transform: uppercase; padding: var(--space-0-5) var(--space-2); border-radius: 999px; border: 1px solid; }
+.badge--ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 45%, transparent); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.badge--warn { color: var(--warning); border-color: color-mix(in srgb, var(--warning) 45%, transparent); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.badge--err { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+@media (max-width: 640px) {
+  .stage[data-view="both"] { grid-template-columns: 1fr; }
+  .app-bar { gap: 0.6rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-bar">
+  <div class="app-bar__title">
+    Markdown Studio — proposed preview themes
+    <span>Two new built-ins alongside Claude and GitHub · shared Cursor-derived spacing scale</span>
+  </div>
+  <div class="seg" role="group" aria-label="Design system">
+    <button type="button" data-view="ergoread" aria-pressed="true">ErgoRead</button>
+    <button type="button" data-view="executive" aria-pressed="false">Executive</button>
+    <button type="button" data-view="both" aria-pressed="false">Side by side</button>
+  </div>
+  <div class="seg" role="group" aria-label="Mode">
+    <button type="button" data-mode="dark" aria-pressed="true">Dark</button>
+    <button type="button" data-mode="light" aria-pressed="false">Light</button>
+  </div>
+</header>
+
+<div class="stage" id="stage" data-view="ergoread">
+
+  <!-- ================= ErgoRead panel ================= -->
+  <section class="panel" data-system="ergoread">
+    <div class="panel__bar">
+      <span class="panel__dot" style="background:#90BFEC"></span>
+      <span class="panel__name">ErgoRead</span>
+      <span class="chips" data-for="ergoread">
+        <button type="button" data-palette="warm" aria-pressed="true">Warm Ash</button>
+        <button type="button" data-palette="cool" aria-pressed="false">Cool Slate</button>
+        <button type="button" data-palette="neutral" aria-pressed="false">Graphite</button>
+        <button type="button" data-palette="cursor" aria-pressed="false">Cursor</button>
+      </span>
+      <span class="panel__tag">body Lc −76 / +86</span>
+    </div>
+    <div class="panel__viewport">
+      <div class="ds ds--ergoread" data-mode="dark" data-palette="warm">
+        <article class="doc">
+          <h1>Streaming ingestion pipeline</h1>
+          <p class="lede">A design note on how events move from the edge collectors into the warm store, why the buffer sits where it does, and what happens when a partition falls behind.</p>
+          <p class="meta">Updated 14 March · 9 min read · owned by Platform Data</p>
+
+          <hr>
+
+          <h2>Why a buffer at all</h2>
+          <p>Collectors emit at wildly uneven rates. A single deploy can push a region from <strong>2k events/sec</strong> to well past forty thousand for a couple of minutes, and the warm store's write path is not elastic on that timescale. The buffer exists to absorb that shape so the store only ever sees a smoothed curve.</p>
+          <p>Everything downstream assumes <em>at-least-once</em> delivery. Deduplication happens at read time using the <code>event_id</code> + <code>ingested_at</code> pair, which means a replay is always safe — a useful property when a consumer group needs to be rewound after a bad release.</p>
+
+          <blockquote>
+            <p>If you find yourself reasoning about exactly-once semantics here, you have taken a wrong turn. The contract is at-least-once, and the reader is idempotent.</p>
+          </blockquote>
+
+          <h2>Partition assignment</h2>
+          <p>Partitions are keyed by tenant, not by collector. This keeps a noisy tenant's backlog contained inside its own partition instead of spreading lag across every consumer in the group.</p>
+          <ul>
+            <li><strong>Tenant key</strong> — stable, so ordering per tenant is preserved across rebalances.</li>
+            <li><strong>Collector key</strong> — rejected; collectors churn during rollouts and every churn triggers a rebalance.</li>
+            <li><strong>Round robin</strong> — rejected; no ordering guarantee, and the reader depends on it.</li>
+          </ul>
+
+          <pre><span class="code-head">consumer.ts</span><span class="body"><code><span class="c">// Lag is measured per partition, not per group — a single hot tenant</span>
+<span class="c">// should not make the whole group look unhealthy.</span>
+<span class="k">export async function</span> <span class="f">pollBatch</span>(<span class="o">
+  </span>partition<span class="o">:</span> <span class="t">Partition</span><span class="o">,</span>
+  budgetMs <span class="o">=</span> <span class="n">250</span>
+)<span class="o">:</span> <span class="t">Promise</span>&lt;<span class="t">Batch</span>&gt; {
+  <span class="k">const</span> deadline <span class="o">=</span> <span class="t">Date</span>.<span class="f">now</span>() <span class="o">+</span> budgetMs;
+  <span class="k">const</span> events <span class="o">=</span> [];
+
+  <span class="k">while</span> (<span class="t">Date</span>.<span class="f">now</span>() &lt; deadline) {
+    <span class="k">const</span> record <span class="o">=</span> <span class="k">await</span> partition.<span class="f">next</span>();
+    <span class="k">if</span> (<span class="o">!</span>record) <span class="k">break</span>;
+    events.<span class="f">push</span>(record);
+  }
+
+  <span class="k">return</span> { partition<span class="o">:</span> partition.id, events, source<span class="o">:</span> <span class="s">"warm"</span> };
+}</code></span></pre>
+
+          <h2>Backpressure thresholds</h2>
+          <p>The writer sheds load in stages rather than failing outright. Each stage is observable, so an on-call engineer can tell which stage is active from a single dashboard row.</p>
+
+          <table>
+            <thead>
+              <tr><th>Stage</th><th>Trigger</th><th>Effect</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Normal</td><td>lag &lt; 30s</td><td>Full fidelity, all fields written</td></tr>
+              <tr><td>Trim</td><td>lag 30–120s</td><td>Optional payload fields dropped</td></tr>
+              <tr><td>Sample</td><td>lag 2–10 min</td><td>1-in-4 sampling on debug-level events</td></tr>
+              <tr><td>Divert</td><td>lag &gt; 10 min</td><td>Overflow written to cold object storage</td></tr>
+            </tbody>
+          </table>
+
+          <div class="alert alert--note">
+            <div class="alert__title">Note</div>
+            <p>Diverted batches are replayable but not queryable until the backfill job runs. Expect a gap in the warm store for the duration.</p>
+          </div>
+
+          <div class="alert alert--warning">
+            <div class="alert__title">Warning</div>
+            <p>Never lower <code>divert_threshold</code> below the backfill job's typical runtime. Doing so produces overlapping backfills that compete for the same write budget.</p>
+          </div>
+
+          <h3>Open questions</h3>
+          <ol>
+            <li>Should the sampling stage be tenant-configurable, or is a global rate simpler to reason about?</li>
+            <li>Does the cold-storage divert need its own retention policy, or does it inherit the warm store's?</li>
+          </ol>
+          <p class="meta">Discussion continues in <a href="#">#platform-data</a>.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= Executive panel ================= -->
+  <section class="panel" data-system="executive">
+    <div class="panel__bar">
+      <span class="panel__dot" style="background:#51A2F8"></span>
+      <span class="panel__name">Executive</span>
+      <span class="chips" data-for="executive">
+        <button type="button" data-palette="slate" aria-pressed="true">Slate</button>
+        <button type="button" data-palette="graphite" aria-pressed="false">Graphite</button>
+      </span>
+      <span class="panel__tag">body Lc −80 / +94</span>
+    </div>
+    <div class="panel__viewport">
+      <div class="ds ds--executive" data-mode="dark" data-palette="slate">
+        <article class="doc">
+          <h1>Q3 Platform Review</h1>
+          <p class="lede">Ingestion reliability, cost per million events, and the two initiatives carrying into Q4.</p>
+
+          <div class="metrics">
+            <div class="metric">
+              <div class="metric__label">Events / day</div>
+              <div class="metric__value">4.82B</div>
+              <div class="metric__delta up">▲ 18.4% QoQ</div>
+            </div>
+            <div class="metric">
+              <div class="metric__label">p99 write latency</div>
+              <div class="metric__value">41ms</div>
+              <div class="metric__delta up">▼ 12ms QoQ</div>
+            </div>
+            <div class="metric">
+              <div class="metric__label">Cost / M events</div>
+              <div class="metric__value">$0.31</div>
+              <div class="metric__delta down">▲ $0.04 QoQ</div>
+            </div>
+            <div class="metric">
+              <div class="metric__label">Uptime</div>
+              <div class="metric__value">99.98%</div>
+              <div class="metric__delta up">SLO met</div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn--primary" type="button">Open dashboard</button>
+            <button class="btn btn--success" type="button">Approve rollout</button>
+            <button class="btn btn--ghost" type="button">Export PDF</button>
+            <span class="badge badge--ok">On track</span>
+            <span class="badge badge--warn">Budget watch</span>
+            <span class="badge badge--err">1 incident</span>
+          </div>
+
+          <h2>Headline</h2>
+          <p>Throughput grew <strong>18.4%</strong> while p99 write latency fell for the third consecutive quarter. The single Sev-2 in August was contained to one region and resolved inside the error budget.</p>
+
+          <blockquote>
+            <p>The partition-per-tenant change did what it promised: no cross-tenant lag contamination in 91 days of production traffic.</p>
+          </blockquote>
+
+          <h2>Reliability</h2>
+          <table>
+            <thead>
+              <tr><th>Service</th><th>SLO</th><th>Actual</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Edge collector</td><td>99.9%</td><td>99.99%</td><td><span class="badge badge--ok">Met</span></td></tr>
+              <tr><td>Warm store write</td><td>99.9%</td><td>99.98%</td><td><span class="badge badge--ok">Met</span></td></tr>
+              <tr><td>Backfill job</td><td>99.5%</td><td>99.1%</td><td><span class="badge badge--warn">At risk</span></td></tr>
+              <tr><td>Query API</td><td>99.9%</td><td>99.62%</td><td><span class="badge badge--err">Missed</span></td></tr>
+            </tbody>
+          </table>
+
+          <div class="alert alert--tip">
+            <div class="alert__title">Recommendation</div>
+            <p>Fund the query-path cache in Q4. Modelling puts the API back above SLO at roughly a third of the cost of adding read replicas.</p>
+          </div>
+
+          <h2>Rollout configuration</h2>
+          <p>The Q4 rollout is gated behind a single flag with a staged percentage ramp:</p>
+
+          <pre><span class="code-head">rollout.yaml</span><span class="body"><code><span class="k">feature</span><span class="o">:</span> <span class="s">query_cache</span>
+<span class="k">stages</span><span class="o">:</span>
+  <span class="o">-</span> <span class="k">name</span><span class="o">:</span> <span class="s">canary</span>
+    <span class="k">percent</span><span class="o">:</span> <span class="n">5</span>
+    <span class="k">bake</span><span class="o">:</span> <span class="s">48h</span>
+  <span class="o">-</span> <span class="k">name</span><span class="o">:</span> <span class="s">broad</span>
+    <span class="k">percent</span><span class="o">:</span> <span class="n">50</span>
+    <span class="k">bake</span><span class="o">:</span> <span class="s">72h</span>
+  <span class="o">-</span> <span class="k">name</span><span class="o">:</span> <span class="s">full</span>
+    <span class="k">percent</span><span class="o">:</span> <span class="n">100</span>
+<span class="c"># Automatic rollback on p99 regression &gt; 15%</span>
+<span class="k">guardrail</span><span class="o">:</span> <span class="s">p99_write_latency</span></code></span></pre>
+
+          <h2>Q4 commitments</h2>
+          <ul>
+            <li><strong>Query-path cache</strong> — returns the API to SLO; owner: Platform Data.</li>
+            <li><strong>Cost per million</strong> — hold at or below $0.28 through tiered retention.</li>
+          </ul>
+          <p class="meta">Prepared for the platform steering review · 30 September</p>
+        </article>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="notes">
+  <h2>One spacing &amp; sizing scale, four themes</h2>
+  <p>Cursor's scale is now the shared geometry for <strong>every</strong> theme — ErgoRead, Executive, and the
+  two that already shipped (<strong>Claude</strong> and <strong>GitHub</strong>). Only colour and the heading
+  scale differ between them now. This is applied in the extension itself, not just this preview:
+  <code>media/theme.css</code> holds the tokens, <code>media/claude-markdown.css</code> consumes the prose ones,
+  <code>media/claude-base.css</code> consumes the chrome ones.</p>
+
+  <p>Cursor splits its scale in two, and that split is worth copying: <strong>fixed px for UI chrome</strong>
+  (toolbars, panels, badges stay aligned regardless of reader font size) and <strong>em-relative for prose</strong>
+  (paragraph rhythm scales with the text). The old chrome values — 12 / 16 / 24px — landed exactly on Cursor's
+  grid, so that migration was lossless.</p>
+
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Token</th><th>Value</th><th>Source</th><th>Was (Claude / GitHub)</th></tr></thead>
+    <tbody>
+      <tr><td><code>--space-0-5 … --space-6</code></td><td><code>2 · 4 · 6 · 8 · 12 · 16 · 24px</code></td><td><code>--cursor-spacing-*</code></td><td>ad-hoc rem values</td></tr>
+      <tr><td><code>--radius-xs / --radius / --radius-lg</code></td><td><code>3 / 6 / 8px</code></td><td><code>--cursor-radius-*</code></td><td>single <code>0.5rem</code></td></tr>
+      <tr><td><code>--weight-normal … --weight-bold</code></td><td><code>400 / 500 / 600 / 700</code></td><td><code>--cursor-font-weight-*</code></td><td>no <code>500</code> step</td></tr>
+      <tr><td><code>--leading-body</code></td><td><code>1.6</code></td><td><code>.rendered-markdown</code></td><td><code>1.7</code></td></tr>
+      <tr><td><code>--leading-code</code></td><td><code>1.4</code></td><td><code>div[data-code]</code></td><td><code>1.6</code></td></tr>
+      <tr><td><code>--space-paragraph</code></td><td><code>1em</code></td><td><code>p { margin-bottom }</code></td><td><code>0.75rem</code></td></tr>
+      <tr><td><code>--space-heading</code></td><td><code>0.5em</code></td><td><code>h1–h6 { margin }</code></td><td>—</td></tr>
+      <tr><td><code>--indent-list</code></td><td><code>2em</code></td><td><code>ol, ul { padding-left }</code></td><td><code>1.5rem</code></td></tr>
+      <tr><td><code>--space-list-item</code></td><td><code>0.25em</code></td><td><code>li { margin-bottom }</code></td><td><code>0.375rem</code></td></tr>
+      <tr><td><code>--pad-cell</code></td><td><code>0.5em</code></td><td><code>td, th { padding }</code></td><td><code>0.625rem 0.875rem</code></td></tr>
+      <tr><td><code>--pad-code-inline</code></td><td><code>0.1em 0.3em</code></td><td><code>code { padding }</code></td><td><code>0.125rem 0.375rem</code></td></tr>
+      <tr><td><code>--text-code</code></td><td><code>0.8em</code></td><td><code>code { font-size }</code></td><td><code>0.875em</code></td></tr>
+      <tr><td><code>--text-code-block</code></td><td><code>0.85em</code></td><td><code>div[data-code]</code></td><td><code>0.875rem</code></td></tr>
+      <tr><td><code>--pad-quote</code> / <code>--border-quote</code></td><td><code>1em</code> / <code>3px</code></td><td><code>blockquote</code></td><td>same</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>Two places I deliberately diverged from Cursor. Its headings are <code>font-size: inherit</code> with flat
+  <code>0.5em</code> margins — correct for a chat transcript, wrong for a document with real structure, so headings
+  keep a size scale and get <code>1em</code> above / <code>0.5em</code> below, which groups a heading with the text it
+  introduces. And its list items inherited a <code>1.4</code> code line-height in our CSS; prose list items now use
+  <code>--leading-body</code>.</p>
+
+  <h2>Cursor teardown — measured, not guessed</h2>
+  <p>Cursor is installed on this machine, so these numbers come from reading its own stylesheet
+  (<code>resources/app/out/vs/workbench/workbench.desktop.main.css</code>) and its bundled theme
+  (<code>extensions/theme-cursor/themes/</code>) directly, then running the hexes through OKLCH and APCA.</p>
+
+  <h3>1. The surfaces are pure grey — chroma exactly 0.000</h3>
+  <p>Cursor Dark's canvas is <code>#181818</code> and its foreground <code>#F0F0F0</code>. Both measure
+  <strong>C = 0.000</strong>. Cursor Light is <code>#FCFCFC</code> / <code>#141414</code> — also 0.000. There is
+  no tint anywhere in the reading surface. This is the single biggest reason it feels calm, and it is the
+  opposite of what the first draft did.</p>
+
+  <h3>2. One colour, derived ~40 ways by alpha</h3>
+  <p>Cursor barely defines a palette. It defines a foreground and derives everything else from it with
+  <code>color-mix(… , transparent)</code>. Nothing can clash because there is only ever one hue in play.
+  The exact ladder, resolved over <code>#181818</code>:</p>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Token</th><th>Alpha</th><th>Resolves to</th><th>APCA</th></tr></thead>
+    <tbody>
+      <tr><td><code>--cursor-text-primary</code></td><td>100%</td><td><span class="sw" style="background:#F0F0F0"></span><code>#F0F0F0</code></td><td><code>−96.9</code></td></tr>
+      <tr><td><code>--cursor-text-secondary</code></td><td>74%</td><td><span class="sw" style="background:#B8B8B8"></span><code>#B8B8B8</code></td><td><code>−62.9</code></td></tr>
+      <tr><td><code>--cursor-text-quaternary</code></td><td>36%</td><td><span class="sw" style="background:#666666"></span><code>#666666</code></td><td><code>−21.9</code></td></tr>
+      <tr><td><code>--cursor-stroke-primary</code></td><td>20%</td><td><span class="sw" style="background:#434343"></span><code>#434343</code></td><td>border</td></tr>
+      <tr><td><code>--cursor-stroke-secondary</code></td><td>12%</td><td><span class="sw" style="background:#323232"></span><code>#323232</code></td><td>border</td></tr>
+      <tr><td><code>--cursor-stroke-tertiary</code></td><td>8%</td><td><span class="sw" style="background:#292929"></span><code>#292929</code></td><td>divider</td></tr>
+      <tr><td><code>--cursor-stroke-quaternary</code></td><td>4%</td><td><span class="sw" style="background:#212121"></span><code>#212121</code></td><td>hairline</td></tr>
+      <tr><td><code>--cursor-bg-secondary</code></td><td>14%</td><td><span class="sw" style="background:#363636"></span><code>#363636</code></td><td>surface</td></tr>
+      <tr><td><code>--cursor-bg-quinary</code></td><td>4%</td><td><span class="sw" style="background:#212121"></span><code>#212121</code></td><td>surface</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>The same ratios are baked into the theme JSON itself — Cursor Light ships
+  <code>descriptionForeground: #141414BD</code>, and <code>0xBD</code> is exactly 74%.</p>
+
+  <h3>3. Prose text is deliberately dimmer than code</h3>
+  <p>This is the detail that matters most, and it is easy to miss. Editor text runs at full strength,
+  <code>Lc −96.9</code>. But rendered prose uses <code>hsla(0,0%,89%,.92)</code>, which resolves to
+  <code>#D3D3D3</code> — <strong><code>Lc −78.8</code></strong>. Cursor steps prose <em>down</em> roughly 18 Lc from
+  its code. That lands almost exactly on the 75–88 reading band, and almost exactly where this rebuild
+  independently landed (<code>−76.3</code>).</p>
+
+  <h3>4. Its markdown metrics</h3>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Property</th><th>Cursor</th><th>Note</th></tr></thead>
+    <tbody>
+      <tr><td>Body line-height</td><td><code>1.6</code></td><td>Matches the ErgoRead spec exactly</td></tr>
+      <tr><td>Paragraph margin</td><td><code>1em</code> bottom, <code>0</code> top</td><td>One-directional margins, no collapsing games</td></tr>
+      <tr><td>Heading size</td><td><code>font-size: inherit</code></td><td>No scale at all in chat — hierarchy is weight + <code>0.5em</code> margins</td></tr>
+      <tr><td>Inline code</td><td><code>0.8em</code>, pad <code>.1em .3em</code>, radius <code>3px</code></td><td>No border — background only</td></tr>
+      <tr><td>Code block</td><td><code>0.85em</code>, line-height <code>1.4</code>, radius <code>4px</code></td><td>Background is <em>lighter</em> than canvas, not darker</td></tr>
+      <tr><td>Blockquote</td><td><code>3px</code> left border, <code>1em</code> pad</td><td>Same as ours</td></tr>
+      <tr><td>Lists</td><td><code>2em</code> indent, <code>.25em</code> item gap</td><td>Deeper indent than ours (1.35em)</td></tr>
+      <tr><td>Table cells</td><td><code>.5em</code> padding</td><td></td></tr>
+      <tr><td>Font smoothing</td><td><code>subpixel-antialiased</code></td><td>Explicitly set — confirms the research doc's warning against <code>antialiased</code></td></tr>
+      <tr><td>Spacing grid</td><td>2 · 4 · 6 · 8 · 12 · 16 · 24</td><td>4px base with half-steps</td></tr>
+      <tr><td>Radii</td><td><code>3</code> / <code>6</code> / <code>8px</code></td><td>xs / base / lg</td></tr>
+      <tr><td>Weights</td><td><code>400 / 500 / 600 / 700</code></td><td></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>5. Its accents are Nord</h3>
+  <p>Cursor Dark's link colour is <code>#81A1C1</code> and its cyan is <code>#88C0D0</code> — those are
+  <em>nord9</em> and <em>nord8</em> verbatim. Measured chroma 0.059 and 0.062, i.e. very desaturated. That is the
+  same conclusion this rebuild reached from a different direction, which is a good sign.</p>
+  <p>One thing I did <strong>not</strong> copy: Cursor's links sit at <code>Lc −48.5</code>, which is genuinely faint
+  for prose. The <strong>Cursor</strong> palette here keeps its hues but lifts link lightness to <code>Lc −63</code>.</p>
+
+  <h2>What changed, and why</h2>
+  <p>The first pass was Catppuccin-derived, and that is exactly what made it feel intense. Measured in OKLCH, its canvas carried <strong>chroma 0.030</strong> and its body text <strong>chroma 0.043</strong> — both at hue ~275–285. So the surface and the text were tinted the same violet, and there was no neutral anywhere for your eye to settle on. Prevailing guidance for dark UI is a canvas tint of about <strong>0.01</strong>; this was three times that. The links compounded it at chroma 0.111.</p>
+  <p>The rule this rebuild follows: <strong>surfaces stay near-neutral, accents carry all the colour.</strong> That is why Gruvbox (canvas chroma 0.000) and GitHub dark-dimmed (0.015) read as calm while Catppuccin and Tokyo Night read as vivid. Every value below was generated in OKLCH and verified with an APCA implementation rather than picked by eye.</p>
+
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Measurement</th><th>Before</th><th>After</th><th>Reference</th></tr></thead>
+    <tbody>
+      <tr><td>Canvas chroma (dark)</td><td><code>0.030</code></td><td><code>0.002 – 0.010</code></td><td>Gruvbox 0.000 · GH-dimmed 0.015 · Nord 0.023</td></tr>
+      <tr><td>Body-text chroma (dark)</td><td><code>0.043</code></td><td><code>0.004 – 0.015</code></td><td>Nord 0.016 · GH-dimmed 0.023</td></tr>
+      <tr><td>Link chroma (dark)</td><td><code>0.111</code></td><td><code>0.082</code></td><td>—</td></tr>
+      <tr><td>Body APCA <code>Lc</code> (dark)</td><td><code>−79.1</code></td><td><code>−76.3</code></td><td>Target band 75–88</td></tr>
+      <tr><td>Body APCA <code>Lc</code> (light)</td><td><code>+89.0</code></td><td><code>+85.9</code></td><td>Target band 75–88</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>ErgoRead — three surface palettes, one accent set</h2>
+  <p>All three share identical typography, identical accents and an identical lightness ladder. Only the surface hue differs, so switching between them changes the <em>mood</em> without changing a single contrast measurement. Pick the one that feels right; the other two get dropped.</p>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Palette</th><th>Canvas (dark)</th><th>Body (dark)</th><th>Canvas (light)</th><th>Body (light)</th><th>Character</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Warm Ash</strong></td><td><span class="sw" style="background:#22201D"></span><code>#22201D</code></td><td><span class="sw" style="background:#D6D2CC"></span><code>#D6D2CC</code></td><td><span class="sw" style="background:#F2F0EC"></span><code>#F2F0EC</code></td><td><span class="sw" style="background:#534F47"></span><code>#534F47</code></td><td>Paper-like, softest at night. Gruvbox / iA Writer lineage.</td></tr>
+      <tr><td><strong>Cool Slate</strong></td><td><span class="sw" style="background:#1D2125"></span><code>#1D2125</code></td><td><span class="sw" style="background:#CCD3DC"></span><code>#CCD3DC</code></td><td><span class="sw" style="background:#EEF0F3"></span><code>#EEF0F3</code></td><td><span class="sw" style="background:#4B5055"></span><code>#4B5055</code></td><td>Familiar next to VS Code's own chrome. Nord / GH-dimmed lineage.</td></tr>
+      <tr><td><strong>Graphite</strong></td><td><span class="sw" style="background:#21201F"></span><code>#21201F</code></td><td><span class="sw" style="background:#D3D2CF"></span><code>#D3D2CF</code></td><td><span class="sw" style="background:#F0F0EE"></span><code>#F0F0EE</code></td><td><span class="sw" style="background:#504F4C"></span><code>#504F4C</code></td><td>No cast at all — accents read at full strength.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Shared accent set (all ErgoRead palettes)</h2>
+  <p>Lightness sits just above the body text, chroma held at 0.07–0.09. High enough to be unmistakably coloured, low enough that nothing glows. Alert backgrounds are derived at runtime via <code>color-mix</code>, so they follow whichever surface palette you pick.</p>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Accent</th><th>Dark</th><th>Light</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td>Blue</td><td><span class="sw" style="background:#90BFEC"></span><code>#90BFEC</code></td><td><span class="sw" style="background:#015FA5"></span><code>#015FA5</code></td><td>Links, focus ring, NOTE alerts</td></tr>
+      <tr><td>Green</td><td><span class="sw" style="background:#9ECC9E"></span><code>#9ECC9E</code></td><td><span class="sw" style="background:#37703B"></span><code>#37703B</code></td><td>TIP alerts, additions</td></tr>
+      <tr><td>Amber</td><td><span class="sw" style="background:#E1C186"></span><code>#E1C186</code></td><td><span class="sw" style="background:#936720"></span><code>#936720</code></td><td>WARNING alerts, highlight</td></tr>
+      <tr><td>Rose</td><td><span class="sw" style="background:#E99FA3"></span><code>#E99FA3</code></td><td><span class="sw" style="background:#A72F3E"></span><code>#A72F3E</code></td><td>CAUTION alerts, deletions</td></tr>
+      <tr><td>Teal</td><td><span class="sw" style="background:#85CCC4"></span><code>#85CCC4</code></td><td><span class="sw" style="background:#00716D"></span><code>#00716D</code></td><td>Syntax: attributes, types</td></tr>
+      <tr><td>Violet</td><td><span class="sw" style="background:#C2AEE9"></span><code>#C2AEE9</code></td><td><span class="sw" style="background:#6A3EA5"></span><code>#6A3EA5</code></td><td>Syntax: keywords</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h2>Executive — two surface palettes</h2>
+  <p>Still the presentation system: elevated cards, crisp borders, display headings with a blue→violet rule, tabular metrics. But the canvas dropped from the near-GitHub <code>#0D1117</code> to a lower-chroma base, the near-white body text came down to <code>Lc −80</code>, and the light canvas is no longer pure <code>#FFFFFF</code>. Contrast is still high — this one is meant to be looked at, not read for an hour — just no longer glaring.</p>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Palette</th><th>Canvas (dark)</th><th>Card (dark)</th><th>Body (dark)</th><th>Canvas (light)</th><th>Character</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Slate</strong></td><td><span class="sw" style="background:#13181C"></span><code>#13181C</code></td><td><span class="sw" style="background:#1D2126"></span><code>#1D2126</code></td><td><span class="sw" style="background:#D2D8DE"></span><code>#D2D8DE</code></td><td><span class="sw" style="background:#F6F8FA"></span><code>#F6F8FA</code></td><td>Cool, boardroom. Closest to the original brief.</td></tr>
+      <tr><td><strong>Graphite</strong></td><td><span class="sw" style="background:#171715"></span><code>#171715</code></td><td><span class="sw" style="background:#21201E"></span><code>#21201E</code></td><td><span class="sw" style="background:#D7D7D4"></span><code>#D7D7D4</code></td><td><span class="sw" style="background:#F8F8F6"></span><code>#F8F8F6</code></td><td>Neutral-warm. Reads more "editorial", less "tech dashboard".</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <div class="table-scroll">
+  <table class="tokens">
+    <thead><tr><th>Semantic</th><th>Dark</th><th>Light</th><th>Used for</th></tr></thead>
+    <tbody>
+      <tr><td><code>--primary</code></td><td><span class="sw" style="background:#51A2F8"></span><code>#51A2F8</code></td><td><span class="sw" style="background:#0065D2"></span><code>#0065D2</code></td><td>CTA buttons, accent rule, focus ring</td></tr>
+      <tr><td><code>--brand-2</code></td><td><span class="sw" style="background:#B484E8"></span><code>#B484E8</code></td><td><span class="sw" style="background:#7935C6"></span><code>#7935C6</code></td><td>Gradient tail on the H1 rule — the signature that separates this from GitHub</td></tr>
+      <tr><td><code>--success</code></td><td><span class="sw" style="background:#52B766"></span><code>#52B766</code></td><td><span class="sw" style="background:#1D863B"></span><code>#1D863B</code></td><td>Positive deltas, approve actions</td></tr>
+      <tr><td><code>--warning</code></td><td><span class="sw" style="background:#E3AD4B"></span><code>#E3AD4B</code></td><td><span class="sw" style="background:#B47819"></span><code>#B47819</code></td><td>At-risk badges</td></tr>
+      <tr><td><code>--danger</code></td><td><span class="sw" style="background:#F36164"></span><code>#F36164</code></td><td><span class="sw" style="background:#C72D31"></span><code>#C72D31</code></td><td>Missed SLO, destructive actions</td></tr>
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<script>
+(function () {
+  const stage = document.getElementById("stage");
+  const surfaces = document.querySelectorAll(".ds");
+
+  document.querySelectorAll("button[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      stage.dataset.view = btn.dataset.view;
+      document.querySelectorAll("button[data-view]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b === btn))
+      );
+    });
+  });
+
+  document.querySelectorAll("button[data-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      surfaces.forEach((el) => { el.dataset.mode = btn.dataset.mode; });
+      document.querySelectorAll("button[data-mode]").forEach((b) =>
+        b.setAttribute("aria-pressed", String(b === btn))
+      );
+    });
+  });
+
+  // Per-system surface-palette chips.
+  document.querySelectorAll(".chips").forEach((group) => {
+    const target = document.querySelector(".ds--" + group.dataset.for);
+    group.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        target.dataset.palette = btn.dataset.palette;
+        group.querySelectorAll("button").forEach((b) =>
+          b.setAttribute("aria-pressed", String(b === btn))
+        );
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

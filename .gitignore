@@ -1,5 +1,7 @@
 node_modules
 out
+dist
+media/vendor
 .vscode-test
 test-resources
 *.vsix
